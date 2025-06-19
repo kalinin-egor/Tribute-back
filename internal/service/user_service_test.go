@@ -137,7 +137,6 @@ func TestUserService_CreateUser_DuplicateEmail(t *testing.T) {
 		t.Error("Expected error for duplicate email, got nil")
 	}
 }
-
 // TestUserService_CreateUser_DuplicateUsername tests creating a user with duplicate username
 func TestUserService_CreateUser_DuplicateUsername(t *testing.T) {
 	mockRepo := NewMockUserRepository()
