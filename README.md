@@ -119,7 +119,7 @@ Create a `.env` file based on `env.example`:
 
 ```env
 # Server Configuration
-PORT=8080
+PORT=8081
 ENV=development
 
 # Database Configuration (Docker Compose)
@@ -164,7 +164,7 @@ ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
 
 ### Register User
 ```bash
-curl -X POST http://localhost:8080/api/v1/auth/register \
+curl -X POST http://localhost:8081/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "email": "user@example.com",
@@ -177,7 +177,7 @@ curl -X POST http://localhost:8080/api/v1/auth/register \
 
 ### Login
 ```bash
-curl -X POST http://localhost:8080/api/v1/auth/login \
+curl -X POST http://localhost:8081/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "email": "user@example.com",
@@ -187,7 +187,7 @@ curl -X POST http://localhost:8080/api/v1/auth/login \
 
 ### Get Profile (with JWT token)
 ```bash
-curl -X GET http://localhost:8080/api/v1/users/profile \
+curl -X GET http://localhost:8081/api/v1/users/profile \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
@@ -239,7 +239,7 @@ The `docker-compose.yml` includes:
 ### Service URLs
 - PostgreSQL: `localhost:5432`
 - Redis: `localhost:6379`
-- API: `localhost:8080`
+- API: `localhost:8081`
 
 ## Database Migrations
 

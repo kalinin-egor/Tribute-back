@@ -24,7 +24,17 @@ func NewUserHandler(userService *service.UserService) *UserHandler {
 	return &UserHandler{userService: userService}
 }
 
-// Register handles user registration
+// Register godoc
+// @Summary      Register a new user
+// @Description  Create a new user account with email, username, password, and personal information
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request body models.CreateUserRequest true "User registration data"
+// @Success      201  {object}  map[string]interface{}  "User created successfully"
+// @Failure      400  {object}  map[string]interface{}  "Bad request - validation error"
+// @Failure      409  {object}  map[string]interface{}  "Conflict - user already exists"
+// @Router       /auth/register [post]
 func (h *UserHandler) Register(c *gin.Context) {
 	var req models.CreateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -44,7 +54,17 @@ func (h *UserHandler) Register(c *gin.Context) {
 	})
 }
 
-// Login handles user login
+// Login godoc
+// @Summary      Login user
+// @Description  Authenticate user with email and password, return JWT token
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request body models.LoginRequest true "Login credentials"
+// @Success      200  {object}  models.LoginResponse  "Login successful"
+// @Failure      400  {object}  map[string]interface{}  "Bad request - validation error"
+// @Failure      401  {object}  map[string]interface{}  "Unauthorized - invalid credentials"
+// @Router       /auth/login [post]
 func (h *UserHandler) Login(c *gin.Context) {
 	var req models.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -76,7 +96,17 @@ func (h *UserHandler) Login(c *gin.Context) {
 	})
 }
 
-// GetProfile retrieves the current user's profile
+// GetProfile godoc
+// @Summary      Get current user profile
+// @Description  Retrieve the profile of the currently authenticated user
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  map[string]interface{}  "User profile"
+// @Failure      401  {object}  map[string]interface{}  "Unauthorized - not authenticated"
+// @Failure      404  {object}  map[string]interface{}  "Not found - user not found"
+// @Router       /users/profile [get]
 func (h *UserHandler) GetProfile(c *gin.Context) {
 	userIDStr, exists := c.Get("user_id")
 	if !exists {
@@ -99,7 +129,19 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"user": user})
 }
 
-// UpdateProfile updates the current user's profile
+// UpdateProfile godoc
+// @Summary      Update current user profile
+// @Description  Update the profile information of the currently authenticated user
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body models.UpdateUserRequest true "User update data"
+// @Success      200  {object}  map[string]interface{}  "User updated successfully"
+// @Failure      400  {object}  map[string]interface{}  "Bad request - validation error"
+// @Failure      401  {object}  map[string]interface{}  "Unauthorized - not authenticated"
+// @Failure      404  {object}  map[string]interface{}  "Not found - user not found"
+// @Router       /users/profile [put]
 func (h *UserHandler) UpdateProfile(c *gin.Context) {
 	userIDStr, exists := c.Get("user_id")
 	if !exists {
@@ -128,7 +170,19 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"user": user})
 }
 
-// GetUserByID retrieves a user by ID (admin only)
+// GetUserByID godoc
+// @Summary      Get user by ID
+// @Description  Retrieve a specific user by their ID (admin only)
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      string  true  "User ID"
+// @Success      200  {object}  map[string]interface{}  "User data"
+// @Failure      400  {object}  map[string]interface{}  "Bad request - invalid ID"
+// @Failure      401  {object}  map[string]interface{}  "Unauthorized - not authenticated"
+// @Failure      404  {object}  map[string]interface{}  "Not found - user not found"
+// @Router       /users/{id} [get]
 func (h *UserHandler) GetUserByID(c *gin.Context) {
 	userID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -145,7 +199,19 @@ func (h *UserHandler) GetUserByID(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"user": user})
 }
 
-// ListUsers retrieves all users with pagination (admin only)
+// ListUsers godoc
+// @Summary      List all users
+// @Description  Retrieve a paginated list of all users (admin only)
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        limit   query     int  false  "Number of users to return (default: 10)"
+// @Param        offset  query     int  false  "Number of users to skip (default: 0)"
+// @Success      200     {object}  map[string]interface{}  "List of users"
+// @Failure      400     {object}  map[string]interface{}  "Bad request - invalid parameters"
+// @Failure      401     {object}  map[string]interface{}  "Unauthorized - not authenticated"
+// @Router       /users/ [get]
 func (h *UserHandler) ListUsers(c *gin.Context) {
 	limitStr := c.DefaultQuery("limit", "10")
 	offsetStr := c.DefaultQuery("offset", "0")
@@ -171,7 +237,18 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"users": users})
 }
 
-// DeleteUser deletes a user (admin only)
+// DeleteUser godoc
+// @Summary      Delete user
+// @Description  Delete a specific user by their ID (admin only)
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      string  true  "User ID"
+// @Success      200  {object}  map[string]interface{}  "User deleted successfully"
+// @Failure      400  {object}  map[string]interface{}  "Bad request - invalid ID"
+// @Failure      401  {object}  map[string]interface{}  "Unauthorized - not authenticated"
+// @Router       /users/{id} [delete]
 func (h *UserHandler) DeleteUser(c *gin.Context) {
 	userID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
