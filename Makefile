@@ -1,4 +1,4 @@
-.PHONY: build run test clean deps migrate-up migrate-down docker-up docker-down docker-logs docker-restart
+.PHONY: build run test clean deps migrate-up migrate-down docker-up docker-down docker-logs docker-restart swagger docker-build docker-run
 
 # Build the application
 build:
@@ -22,7 +22,18 @@ deps:
 	go mod download
 	go mod tidy
 
-# Docker Compose commands
+# Install swag tool for Swagger generation
+install-swag:
+	go install github.com/swaggo/swag/cmd/swag@latest
+
+# Generate Swagger documentation
+swagger:
+	swag init -g main.go
+
+# Generate Swagger and run
+swagger-run: swagger run
+
+# Docker commands
 docker-up:
 	docker-compose up -d
 
@@ -34,6 +45,22 @@ docker-logs:
 
 docker-restart:
 	docker-compose restart
+
+# Build and run with Docker
+docker-build:
+	docker-compose build
+
+docker-run: docker-build docker-up
+	@echo "Application is running at http://localhost:8080"
+	@echo "Swagger docs: http://localhost:8080/docs/index.html"
+	@echo "Health check: http://localhost:8080/health"
+
+# Development with Docker (full stack)
+dev-docker: docker-run
+	@echo "Full development environment ready!"
+	@echo "API: http://localhost:8080"
+	@echo "PostgreSQL: localhost:5432"
+	@echo "Redis: localhost:6379"
 
 # Run database migrations (local)
 migrate-up:
