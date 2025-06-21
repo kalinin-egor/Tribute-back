@@ -1,0 +1,193 @@
+name: Backend CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    env:
+      BRANCH_NAME: ${{ github.ref_name }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+        cache: true
+        
+    - name: Install dependencies
+      run: go mod download
+      
+    - name: Run tests
+      run: go test ./...
+      
+    - name: Generate Swagger docs
+      run: |
+        go install github.com/swaggo/swag/cmd/swag@latest
+        swag init -g main.go
+      
+    - name: Build application
+      run: |
+        CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o tribute-back main.go
+        
+    - name: Build verification
+      run: |
+        if [ -f "tribute-back" ]; then
+          echo "✅ Build successful! Binary created."
+          echo "📁 Binary size:"
+          ls -lh tribute-back
+          echo "📊 Binary info:"
+          file tribute-back
+        else
+          echo "❌ Build failed! Binary not found."
+          exit 1
+        fi
+      
+    - name: Deploy to VPS
+      if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+      uses: appleboy/ssh-action@v1
+      with:
+        host: ${{ secrets.SERVER_IP }}
+        username: root
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        debug: true
+        script: |
+          set -e
+          echo "🔐 SSH Authentication successful!"
+          echo "Starting deployment process..."
+          echo "Current directory: $(pwd)"
+          echo "User: $(whoami)"
+          echo "Branch: ${{ env.BRANCH_NAME }}"
+          
+          # Setup SSH key for GitHub access
+          echo "🔑 Setting up SSH key for GitHub access..."
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          
+          # Add the SSH key to authorized_keys for GitHub
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          
+          # Extract public key from private key
+          ssh-keygen -y -f ~/.ssh/id_rsa > ~/.ssh/id_rsa.pub
+          chmod 644 ~/.ssh/id_rsa.pub
+          
+          # Add GitHub to known hosts
+          ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+          
+          # Test GitHub SSH connection
+          echo "Testing GitHub SSH connection..."
+          ssh -T git@github.com || true
+          
+          # Set repository path based on branch
+          if [ "${{ env.BRANCH_NAME }}" = "main" ]; then
+            REPO_PATH="/root/tribute/Tribute-back"
+            DEPLOY_USER="root"
+          else
+            REPO_PATH="/root/tribute/Tribute-back"
+            DEPLOY_USER="root"
+          fi
+          
+          echo "Using repository path: $REPO_PATH"
+          
+          # Navigate to repository directory
+          if [ -d "$REPO_PATH" ]; then
+            cd "$REPO_PATH"
+            echo "Repository directory: $(pwd)"
+          else
+            echo "❌ Repository directory not found: $REPO_PATH"
+            echo "Available directories in /root/:"
+            ls -la /root/
+            echo "Creating repository directory..."
+            mkdir -p "$REPO_PATH"
+            cd "$REPO_PATH"
+            # Use SSH for git clone
+            git clone git@github.com:${{ github.repository_owner }}/Tribute-back.git .
+          fi
+          
+          # Pull latest changes
+          echo "📥 Pulling latest changes..."
+          git fetch origin
+          git reset --hard origin/${{ env.BRANCH_NAME }}
+          
+          # Install Go if not present
+          if ! command -v go &> /dev/null; then
+            echo "📦 Installing Go..."
+            wget https://go.dev/dl/go1.21.0.linux-amd64.tar.gz
+            tar -C /usr/local -xzf go1.21.0.linux-amd64.tar.gz
+            export PATH=$PATH:/usr/local/go/bin
+            echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+          fi
+          
+          # Install dependencies
+          echo "📦 Installing Go dependencies..."
+          go mod download
+          
+          # Generate Swagger docs
+          echo "📚 Generating Swagger documentation..."
+          go install github.com/swaggo/swag/cmd/swag@latest
+          swag init -g main.go
+          
+          # Build application
+          echo "🔨 Building application..."
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o tribute-back main.go
+          
+          # Build verification
+          echo "✅ Build verification..."
+          if [ -f "tribute-back" ]; then
+            echo "✅ Build successful! Binary created."
+            echo "📁 Binary size:"
+            ls -lh tribute-back
+            echo "📊 Binary info:"
+            file tribute-back
+            echo "🎉 Deployment completed successfully! Binary is ready."
+            
+            # Set executable permissions
+            chmod +x tribute-back
+            
+            # Create systemd service if it doesn't exist
+            if [ ! -f "/etc/systemd/system/tribute-back.service" ]; then
+              echo "🔧 Creating systemd service..."
+              echo "[Unit]" > /etc/systemd/system/tribute-back.service
+              echo "Description=Tribute Backend Service" >> /etc/systemd/system/tribute-back.service
+              echo "After=network.target" >> /etc/systemd/system/tribute-back.service
+              echo "" >> /etc/systemd/system/tribute-back.service
+              echo "[Service]" >> /etc/systemd/system/tribute-back.service
+              echo "Type=simple" >> /etc/systemd/system/tribute-back.service
+              echo "User=root" >> /etc/systemd/system/tribute-back.service
+              echo "WorkingDirectory=$REPO_PATH" >> /etc/systemd/system/tribute-back.service
+              echo "ExecStart=$REPO_PATH/tribute-back" >> /etc/systemd/system/tribute-back.service
+              echo "Restart=always" >> /etc/systemd/system/tribute-back.service
+              echo "RestartSec=5" >> /etc/systemd/system/tribute-back.service
+              echo "Environment=GIN_MODE=release" >> /etc/systemd/system/tribute-back.service
+              echo "" >> /etc/systemd/system/tribute-back.service
+              echo "[Install]" >> /etc/systemd/system/tribute-back.service
+              echo "WantedBy=multi-user.target" >> /etc/systemd/system/tribute-back.service
+              systemctl daemon-reload
+              systemctl enable tribute-back.service
+            fi
+            
+            # Restart the service
+            echo "🔄 Restarting service..."
+            systemctl restart tribute-back.service
+            
+            # Check service status
+            echo "📊 Service status:"
+            systemctl status tribute-back.service --no-pager
+            
+          else
+            echo "❌ Build failed! Binary not found."
+            exit 1
+          fi
+        port: 22
+        timeout: 30s
+        command_timeout: 15m
+        proxy_port: 22
+        proxy_timeout: 30s 
