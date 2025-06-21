@@ -1,6 +1,7 @@
 package service
 
 import (
+	"database/sql"
 	"testing"
 
 	"tribute-back/internal/models"
@@ -29,7 +30,7 @@ func (m *MockUserRepository) GetByID(id uuid.UUID) (*models.User, error) {
 	if user, exists := m.users[id.String()]; exists {
 		return user, nil
 	}
-	return nil, nil
+	return nil, sql.ErrNoRows
 }
 
 func (m *MockUserRepository) GetByEmail(email string) (*models.User, error) {
@@ -38,7 +39,7 @@ func (m *MockUserRepository) GetByEmail(email string) (*models.User, error) {
 			return user, nil
 		}
 	}
-	return nil, nil
+	return nil, sql.ErrNoRows
 }
 
 func (m *MockUserRepository) GetByUsername(username string) (*models.User, error) {
@@ -47,7 +48,7 @@ func (m *MockUserRepository) GetByUsername(username string) (*models.User, error
 			return user, nil
 		}
 	}
-	return nil, nil
+	return nil, sql.ErrNoRows
 }
 
 func (m *MockUserRepository) Update(user *models.User) error {
