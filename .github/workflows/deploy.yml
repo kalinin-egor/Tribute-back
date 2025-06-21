@@ -105,7 +105,14 @@ jobs:
             tar -C /usr/local -xzf go1.21.0.linux-amd64.tar.gz
             export PATH=$PATH:/usr/local/go/bin
             echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+            echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.profile
+            source ~/.profile
           fi
+          
+          # Ensure Go is in PATH for current session
+          export PATH=$PATH:/usr/local/go/bin
+          export GOPATH=$HOME/go
+          export PATH=$PATH:$GOPATH/bin
           
           # Install dependencies
           echo "📦 Installing Go dependencies..."
@@ -114,6 +121,7 @@ jobs:
           # Generate Swagger docs
           echo "📚 Generating Swagger documentation..."
           go install github.com/swaggo/swag/cmd/swag@latest
+          export PATH=$PATH:$GOPATH/bin
           swag init -g main.go
           
           # Build application
