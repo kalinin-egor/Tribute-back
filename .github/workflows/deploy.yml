@@ -66,35 +66,8 @@ jobs:
           echo "User: $(whoami)"
           echo "Branch: ${{ env.BRANCH_NAME }}"
           
-          # Setup SSH key for GitHub access
-          echo "🔑 Setting up SSH key for GitHub access..."
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          
-          # Add the SSH key to authorized_keys for GitHub
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          
-          # Extract public key from private key
-          ssh-keygen -y -f ~/.ssh/id_rsa > ~/.ssh/id_rsa.pub
-          chmod 644 ~/.ssh/id_rsa.pub
-          
-          # Add GitHub to known hosts
-          ssh-keyscan -H github.com >> ~/.ssh/known_hosts
-          
-          # Test GitHub SSH connection
-          echo "Testing GitHub SSH connection..."
-          ssh -T git@github.com || true
-          
-          # Set repository path based on branch
-          if [ "${{ env.BRANCH_NAME }}" = "main" ]; then
-            REPO_PATH="/root/tribute/Tribute-back"
-            DEPLOY_USER="root"
-          else
-            REPO_PATH="/root/tribute/Tribute-back"
-            DEPLOY_USER="root"
-          fi
-          
+          # Set repository path
+          REPO_PATH="/root/tribute/Tribute-back"
           echo "Using repository path: $REPO_PATH"
           
           # Navigate to repository directory
@@ -108,9 +81,17 @@ jobs:
             echo "Creating repository directory..."
             mkdir -p "$REPO_PATH"
             cd "$REPO_PATH"
-            # Use SSH for git clone
-            git clone git@github.com:${{ github.repository_owner }}/Tribute-back.git .
           fi
+          
+          # Setup Git with HTTPS (more reliable than SSH for CI/CD)
+          echo "📥 Setting up Git repository with HTTPS..."
+          if [ ! -d ".git" ]; then
+            git clone https://github.com/${{ github.repository_owner }}/Tribute-back.git .
+          fi
+          
+          # Configure Git for HTTPS
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
           
           # Pull latest changes
           echo "📥 Pulling latest changes..."
