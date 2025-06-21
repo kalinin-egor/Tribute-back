@@ -66,15 +66,6 @@ jobs:
           echo "User: $(whoami)"
           echo "Branch: ${{ env.BRANCH_NAME }}"
           
-          # Debug SSH setup
-          echo "🔍 Debugging SSH setup..."
-          echo "SSH directory permissions:"
-          ls -la ~/.ssh/ || echo "SSH directory not found"
-          echo "SSH key permissions:"
-          ls -la ~/.ssh/id_rsa* || echo "SSH keys not found"
-          echo "SSH key content (first few lines):"
-          head -3 ~/.ssh/id_rsa || echo "SSH key file not found"
-          
           # Setup SSH key for GitHub access
           echo "🔑 Setting up SSH key for GitHub access..."
           mkdir -p ~/.ssh
