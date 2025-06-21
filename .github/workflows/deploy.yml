@@ -66,35 +66,8 @@ jobs:
           echo "User: $(whoami)"
           echo "Branch: ${{ env.BRANCH_NAME }}"
           
-          # Setup SSH key for GitHub access
-          echo "🔑 Setting up SSH key for GitHub access..."
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          
-          # Add the SSH key to authorized_keys for GitHub
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          
-          # Extract public key from private key
-          ssh-keygen -y -f ~/.ssh/id_rsa > ~/.ssh/id_rsa.pub
-          chmod 644 ~/.ssh/id_rsa.pub
-          
-          # Add GitHub to known hosts
-          ssh-keyscan -H github.com >> ~/.ssh/known_hosts
-          
-          # Test GitHub SSH connection
-          echo "Testing GitHub SSH connection..."
-          ssh -T git@github.com || true
-          
-          # Set repository path based on branch
-          if [ "${{ env.BRANCH_NAME }}" = "main" ]; then
-            REPO_PATH="/root/tribute/Tribute-back"
-            DEPLOY_USER="root"
-          else
-            REPO_PATH="/root/tribute/Tribute-back"
-            DEPLOY_USER="root"
-          fi
-          
+          # Set repository path
+          REPO_PATH="/root/tribute/Tribute-back"
           echo "Using repository path: $REPO_PATH"
           
           # Navigate to repository directory
@@ -108,8 +81,12 @@ jobs:
             echo "Creating repository directory..."
             mkdir -p "$REPO_PATH"
             cd "$REPO_PATH"
-            # Use SSH for git clone
-            git clone git@github.com:${{ github.repository_owner }}/Tribute-back.git .
+          fi
+          
+          # Setup Git with HTTPS (more reliable than SSH for CI/CD)
+          echo "📥 Setting up Git repository..."
+          if [ ! -d ".git" ]; then
+            git clone https://github.com/${{ github.repository_owner }}/Tribute-back.git .
           fi
           
           # Pull latest changes
@@ -152,35 +129,60 @@ jobs:
             # Set executable permissions
             chmod +x tribute-back
             
-            # Create systemd service if it doesn't exist
+            # Setup Docker Compose
+            echo "🐳 Setting up Docker Compose..."
+            if [ ! -f "docker-compose.yml" ]; then
+              echo "❌ docker-compose.yml not found in repository"
+              exit 1
+            fi
+            
+            # Stop existing containers if running
+            echo "🛑 Stopping existing containers..."
+            docker-compose down || true
+            
+            # Build and start containers
+            echo "🔨 Building and starting containers..."
+            docker-compose up -d --build
+            
+            # Wait for services to be ready
+            echo "⏳ Waiting for services to be ready..."
+            sleep 10
+            
+            # Check container status
+            echo "📊 Container status:"
+            docker-compose ps
+            
+            # Check logs
+            echo "📋 Recent logs:"
+            docker-compose logs --tail=20
+            
+            # Create systemd service for the binary (as backup)
             if [ ! -f "/etc/systemd/system/tribute-back.service" ]; then
               echo "🔧 Creating systemd service..."
-              echo "[Unit]" > /etc/systemd/system/tribute-back.service
-              echo "Description=Tribute Backend Service" >> /etc/systemd/system/tribute-back.service
-              echo "After=network.target" >> /etc/systemd/system/tribute-back.service
-              echo "" >> /etc/systemd/system/tribute-back.service
-              echo "[Service]" >> /etc/systemd/system/tribute-back.service
-              echo "Type=simple" >> /etc/systemd/system/tribute-back.service
-              echo "User=root" >> /etc/systemd/system/tribute-back.service
-              echo "WorkingDirectory=$REPO_PATH" >> /etc/systemd/system/tribute-back.service
-              echo "ExecStart=$REPO_PATH/tribute-back" >> /etc/systemd/system/tribute-back.service
-              echo "Restart=always" >> /etc/systemd/system/tribute-back.service
-              echo "RestartSec=5" >> /etc/systemd/system/tribute-back.service
-              echo "Environment=GIN_MODE=release" >> /etc/systemd/system/tribute-back.service
-              echo "" >> /etc/systemd/system/tribute-back.service
-              echo "[Install]" >> /etc/systemd/system/tribute-back.service
-              echo "WantedBy=multi-user.target" >> /etc/systemd/system/tribute-back.service
+              cat > /etc/systemd/system/tribute-back.service << 'EOF'
+          [Unit]
+          Description=Tribute Backend Service
+          After=network.target
+          
+          [Service]
+          Type=simple
+          User=root
+          WorkingDirectory=$REPO_PATH
+          ExecStart=$REPO_PATH/tribute-back
+          Restart=always
+          RestartSec=5
+          Environment=GIN_MODE=release
+          
+          [Install]
+          WantedBy=multi-user.target
+          EOF
               systemctl daemon-reload
               systemctl enable tribute-back.service
             fi
             
-            # Restart the service
-            echo "🔄 Restarting service..."
-            systemctl restart tribute-back.service
-            
-            # Check service status
+            echo "🎉 Deployment completed successfully!"
             echo "📊 Service status:"
-            systemctl status tribute-back.service --no-pager
+            docker-compose ps
             
           else
             echo "❌ Build failed! Binary not found."
