@@ -28,28 +28,6 @@ jobs:
     - name: Run tests
       run: go test ./...
       
-    - name: Generate Swagger docs
-      run: |
-        go install github.com/swaggo/swag/cmd/swag@latest
-        swag init -g main.go
-      
-    - name: Build application
-      run: |
-        CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o tribute-back main.go
-        
-    - name: Build verification
-      run: |
-        if [ -f "tribute-back" ]; then
-          echo "✅ Build successful! Binary created."
-          echo "📁 Binary size:"
-          ls -lh tribute-back
-          echo "📊 Binary info:"
-          file tribute-back
-        else
-          echo "❌ Build failed! Binary not found."
-          exit 1
-        fi
-      
     - name: Deploy to VPS
       if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
       uses: appleboy/ssh-action@v1
@@ -98,80 +76,37 @@ jobs:
           git fetch origin
           git reset --hard origin/${{ env.BRANCH_NAME }}
           
-          # Install Go if not present
-          if ! command -v go &> /dev/null; then
-            echo "📦 Installing Go..."
-            wget https://go.dev/dl/go1.21.0.linux-amd64.tar.gz
-            tar -C /usr/local -xzf go1.21.0.linux-amd64.tar.gz
-            export PATH=$PATH:/usr/local/go/bin
-            echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
-            echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.profile
-            source ~/.profile
+          # Setup Docker Compose
+          echo "🐳 Setting up Docker Compose..."
+          if [ ! -f "docker-compose.yml" ]; then
+            echo "❌ docker-compose.yml not found in repository"
+            exit 1
           fi
           
-          # Ensure Go is in PATH for current session
-          export PATH=$PATH:/usr/local/go/bin
-          export GOPATH=$HOME/go
-          export PATH=$PATH:$GOPATH/bin
+          # Stop existing containers if running
+          echo "🛑 Stopping existing containers..."
+          docker-compose down || true
           
-          # Install dependencies
-          echo "📦 Installing Go dependencies..."
-          go mod download
+          # Build and start containers
+          echo "🔨 Building and starting containers..."
+          docker-compose up -d --build
           
-          # Generate Swagger docs
-          echo "📚 Generating Swagger documentation..."
-          go install github.com/swaggo/swag/cmd/swag@latest
-          export PATH=$PATH:$GOPATH/bin
-          swag init -g main.go
+          # Wait for services to be ready
+          echo "⏳ Waiting for services to be ready..."
+          sleep 10
           
-          # Build application
-          echo "🔨 Building application..."
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o tribute-back main.go
+          # Check container status
+          echo "📊 Container status:"
+          docker-compose ps
           
-          # Build verification
-          echo "✅ Build verification..."
-          if [ -f "tribute-back" ]; then
-            echo "✅ Build successful! Binary created."
-            echo "📁 Binary size:"
-            ls -lh tribute-back
-            echo "📊 Binary info:"
-            file tribute-back
-            echo "🎉 Deployment completed successfully! Binary is ready."
-            
-            # Set executable permissions
-            chmod +x tribute-back
-            
-            # Setup Docker Compose
-            echo "🐳 Setting up Docker Compose..."
-            if [ ! -f "docker-compose.yml" ]; then
-              echo "❌ docker-compose.yml not found in repository"
-              exit 1
-            fi
-            
-            # Stop existing containers if running
-            echo "🛑 Stopping existing containers..."
-            docker-compose down || true
-            
-            # Build and start containers
-            echo "🔨 Building and starting containers..."
-            docker-compose up -d --build
-            
-            # Wait for services to be ready
-            echo "⏳ Waiting for services to be ready..."
-            sleep 10
-            
-            # Check container status
-            echo "📊 Container status:"
-            docker-compose ps
-            
-            # Check logs
-            echo "📋 Recent logs:"
-            docker-compose logs --tail=20
-            
-            # Create systemd service for the binary (as backup)
-            if [ ! -f "/etc/systemd/system/tribute-back.service" ]; then
-              echo "🔧 Creating systemd service..."
-              cat > /etc/systemd/system/tribute-back.service << 'EOF'
+          # Check logs
+          echo "📋 Recent logs:"
+          docker-compose logs --tail=20
+          
+          # Create systemd service for the binary (as backup)
+          if [ ! -f "/etc/systemd/system/tribute-back.service" ]; then
+            echo "🔧 Creating systemd service..."
+            cat > /etc/systemd/system/tribute-back.service << 'EOF'
           [Unit]
           Description=Tribute Backend Service
           After=network.target
@@ -188,18 +123,13 @@ jobs:
           [Install]
           WantedBy=multi-user.target
           EOF
-              systemctl daemon-reload
-              systemctl enable tribute-back.service
-            fi
-            
-            echo "🎉 Deployment completed successfully!"
-            echo "📊 Service status:"
-            docker-compose ps
-            
-          else
-            echo "❌ Build failed! Binary not found."
-            exit 1
+            systemctl daemon-reload
+            systemctl enable tribute-back.service
           fi
+          
+          echo "🎉 Deployment completed successfully!"
+          echo "📊 Service status:"
+          docker-compose ps
         port: 22
         timeout: 30s
         command_timeout: 15m
