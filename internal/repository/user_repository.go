@@ -8,6 +8,17 @@ import (
 	"github.com/google/uuid"
 )
 
+// UserRepositoryInterface defines the interface for user repository operations
+type UserRepositoryInterface interface {
+	Create(user *models.User) error
+	GetByID(id uuid.UUID) (*models.User, error)
+	GetByEmail(email string) (*models.User, error)
+	GetByUsername(username string) (*models.User, error)
+	Update(user *models.User) error
+	Delete(id uuid.UUID) error
+	List(limit, offset int) ([]*models.User, error)
+}
+
 // UserRepository handles database operations for users
 type UserRepository struct {
 	db *sql.DB
