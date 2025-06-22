@@ -9,8 +9,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
+      # migrate:
+      #   condition: service_completed_successfully
     networks:
       - tribute_network
     restart: unless-stopped
@@ -49,18 +49,18 @@ services:
       timeout: 5s
       retries: 5
 
-  migrate:
-    image: migrate/migrate:latest
-    container_name: tribute_migrate
-    command: ["-path", "/migrations", "-database", "postgres://postgres:password@postgres:5432/tribute_db?sslmode=disable", "up"]
-    volumes:
-      - ./migrations:/migrations
-    networks:
-      - tribute_network
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: "no"
+  # migrate:
+  #   image: migrate/migrate:latest
+  #   container_name: tribute_migrate
+  #   command: ["-path", "/migrations", "-database", "postgres://postgres:password@postgres:5432/tribute_db?sslmode=disable", "up"]
+  #   volumes:
+  #     - ./migrations:/migrations
+  #   networks:
+  #     - tribute_network
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   restart: "no"
 
 volumes:
   postgres_data:

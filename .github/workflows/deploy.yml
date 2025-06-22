@@ -103,37 +103,37 @@ jobs:
           done
           
           # Run database migrations
-          echo "🗄️ Running database migrations..."
+          # echo "🗄️ Running database migrations..."
           
           # Check if schema_migrations table exists and clean dirty state if needed
-          echo "📊 Checking database state..."
-          docker-compose exec -T postgres psql -U postgres -d tribute_db -c "
-          DO \$\$
-          BEGIN
-            -- Create schema_migrations table if it doesn't exist
-            IF NOT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'schema_migrations') THEN
-              CREATE TABLE schema_migrations (version bigint PRIMARY KEY, dirty boolean);
-            END IF;
-            
-            -- Clean any dirty state
-            UPDATE schema_migrations SET dirty = false WHERE dirty = true;
-            
-            -- If no migrations recorded, start fresh
-            IF NOT EXISTS (SELECT 1 FROM schema_migrations) THEN
-              INSERT INTO schema_migrations (version, dirty) VALUES (0, false);
-            END IF;
-          END \$\$;
-          " || echo "Database setup completed"
+          # echo "📊 Checking database state..."
+          # docker-compose exec -T postgres psql -U postgres -d tribute_db -c "
+          # DO \$\$
+          # BEGIN
+          #   -- Create schema_migrations table if it doesn't exist
+          #   IF NOT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'schema_migrations') THEN
+          #     CREATE TABLE schema_migrations (version bigint PRIMARY KEY, dirty boolean);
+          #   END IF;
+          #   
+          #   -- Clean any dirty state
+          #   UPDATE schema_migrations SET dirty = false WHERE dirty = true;
+          #   
+          #   -- If no migrations recorded, start fresh
+          #   IF NOT EXISTS (SELECT 1 FROM schema_migrations) THEN
+          #     INSERT INTO schema_migrations (version, dirty) VALUES (0, false);
+          #   END IF;
+          # END \$\$;
+          # " || echo "Database setup completed"
           
           # Run migrations with proper error handling
-          echo "🔄 Running migrations..."
-          docker-compose exec -T migrate migrate -path /migrations -database "postgres://postgres:password@postgres:5432/tribute_db?sslmode=disable" up
+          # echo "🔄 Running migrations..."
+          # docker-compose exec -T migrate migrate -path /migrations -database "postgres://postgres:password@postgres:5432/tribute_db?sslmode=disable" up
           
           # Verify migration status
-          echo "✅ Verifying migration status..."
-          docker-compose exec -T postgres psql -U postgres -d tribute_db -c "SELECT version, dirty FROM schema_migrations;"
+          # echo "✅ Verifying migration status..."
+          # docker-compose exec -T postgres psql -U postgres -d tribute_db -c "SELECT version, dirty FROM schema_migrations;"
           
-          echo "✅ Database migrations completed successfully!"
+          # echo "✅ Database migrations completed successfully!"
           
           # Check container status
           echo "📊 Container status:"
