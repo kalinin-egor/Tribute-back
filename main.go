@@ -22,7 +22,6 @@ package main
 
 import (
 	"log"
-	"os"
 
 	"tribute-back/internal/config"
 	"tribute-back/internal/database"
@@ -55,20 +54,16 @@ func main() {
 	// Initialize Redis
 	redisClient, err := redis.Init()
 	if err != nil {
-		log.Fatal("Error initializing Redis:", err)
+		log.Println("Could not connect to Redis:", err)
+	} else {
+		defer redisClient.Close()
 	}
-	defer redisClient.Close()
 
-	// Initialize and start server
+	// Create and run server
 	app := server.NewServer(db, redisClient)
-
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8081"
-	}
-
-	log.Printf("Server starting on port %s", port)
-	if err := app.Run(":" + port); err != nil {
+	addr := ":" + config.GetEnv("PORT", "8081")
+	log.Printf("Server starting on %s", addr)
+	if err := app.Run(addr); err != nil {
 		log.Fatal("Error starting server:", err)
 	}
 }

@@ -2,12 +2,15 @@ package server
 
 import (
 	"database/sql"
-	"net/http"
-
-	"tribute-back/internal/handler"
-	"tribute-back/internal/middleware"
-	"tribute-back/internal/repository"
-	"tribute-back/internal/service"
+	"log"
+	"tribute-back/internal/application/services"
+	"tribute-back/internal/config"
+	"tribute-back/internal/infrastructure/auth"
+	"tribute-back/internal/infrastructure/database/postgres"
+	"tribute-back/internal/infrastructure/payouts"
+	"tribute-back/internal/infrastructure/telegram"
+	"tribute-back/internal/interfaces/api/handlers"
+	"tribute-back/internal/interfaces/api/middleware"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -16,83 +19,58 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
-// Server represents the HTTP server
-type Server struct {
-	router *gin.Engine
-	db     *sql.DB
-	redis  *redis.Client
-}
-
-// NewServer creates a new server instance
-func NewServer(db *sql.DB, redisClient *redis.Client) *Server {
+func NewServer(db *sql.DB, redisClient *redis.Client) *gin.Engine {
 	router := gin.Default()
 
-	// Configure CORS
-	config := cors.DefaultConfig()
-	config.AllowOrigins = []string{"http://localhost:3000", "http://localhost:3001"}
-	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
-	config.AllowHeaders = []string{"Origin", "Content-Type", "Accept", "Authorization"}
-	router.Use(cors.New(config))
+	// CORS
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"*"}, // Replace with your allowed origins
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+	}))
 
-	server := &Server{
-		router: router,
-		db:     db,
-		redis:  redisClient,
+	// Services
+	jwtService := auth.NewJWTService()
+	botService, err := telegram.NewBotService()
+	if err != nil {
+		log.Fatal("Failed to initialize Telegram Bot Service:", err)
 	}
+	payoutGateway := payouts.NewMockGateway()
 
-	server.setupRoutes()
-	return server
-}
+	// Repositories
+	userRepo := postgres.NewPgUserRepository(db)
+	channelRepo := postgres.NewPgChannelRepository(db)
+	subRepo := postgres.NewPgSubscriptionRepository(db)
+	paymentRepo := postgres.NewPgPaymentRepository(db)
 
-// setupRoutes configures all the routes
-func (s *Server) setupRoutes() {
-	// Initialize repositories
-	userRepo := repository.NewUserRepository(s.db)
+	// Application Services
+	tributeService := services.NewTributeService(userRepo, channelRepo, subRepo, paymentRepo, botService, payoutGateway)
 
-	// Initialize services
-	userService := service.NewUserService(userRepo)
+	// Handlers
+	tributeHandler := handlers.NewTributeHandler(tributeService)
 
-	// Initialize handlers
-	userHandler := handler.NewUserHandler(userService)
+	// Public webhook for Telegram
+	router.POST("/api/v1/check-verified-passport", tributeHandler.CheckVerifiedPassport)
 
-	// Health check
-	s.router.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "ok"})
-	})
-
-	// Swagger documentation
-	s.router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
-	// Alias for FastAPI-style docs
-	s.router.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
-
-	// API routes
-	api := s.router.Group("/api/v1")
+	// Protected routes
+	api := router.Group("/api/v1")
+	api.Use(middleware.AuthMiddleware(jwtService))
 	{
-		// Public routes
-		auth := api.Group("/auth")
-		{
-			auth.POST("/register", userHandler.Register)
-			auth.POST("/login", userHandler.Login)
-		}
-
-		// Protected routes
-		protected := api.Group("/")
-		protected.Use(middleware.AuthMiddleware())
-		{
-			// User routes
-			users := protected.Group("/users")
-			{
-				users.GET("/profile", userHandler.GetProfile)
-				users.PUT("/profile", userHandler.UpdateProfile)
-				users.GET("/:id", userHandler.GetUserByID)
-				users.GET("/", userHandler.ListUsers)
-				users.DELETE("/:id", userHandler.DeleteUser)
-			}
-		}
+		// All other routes are registered here and are protected
+		api.POST("/dashboard", tributeHandler.Dashboard)
+		api.POST("/add-bot", tributeHandler.AddBot)
+		api.POST("/upload-verified-passport", tributeHandler.UploadVerifiedPassport)
+		api.POST("/set-up-payouts", tributeHandler.SetUpPayouts)
+		api.POST("/publish-subscription", tributeHandler.PublishSubscription)
+		api.POST("/create-subscribe", tributeHandler.CreateSubscribe)
 	}
-}
 
-// Run starts the server
-func (s *Server) Run(addr string) error {
-	return s.router.Run(addr)
+	// Swagger
+	if config.GetEnv("GIN_MODE", "debug") != "release" {
+		router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	}
+
+	return router
 }
