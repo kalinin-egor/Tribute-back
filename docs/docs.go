@@ -203,7 +203,7 @@ const docTemplate = `{
                         "TgAuth": []
                     }
                 ],
-                "description": "Retrieves all data for the main dashboard screen. The user is identified via the `initData` in the Authorization header. If the user does not exist in the database, empty data is returned, which is a normal flow indicating the user needs to complete onboarding via the `/onboard` endpoint.",
+                "description": "Retrieves all data for the main dashboard screen. The user is identified via the ` + "`" + `initData` + "`" + ` in the Authorization header. If the user does not exist in the database, empty data is returned, which is a normal flow indicating the user needs to complete onboarding via the ` + "`" + `/onboard` + "`" + ` endpoint.",
                 "produces": [
                     "application/json"
                 ],
