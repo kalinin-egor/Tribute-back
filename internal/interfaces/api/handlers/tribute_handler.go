@@ -145,7 +145,7 @@ func (h *TributeHandler) Onboard(c *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Security     TgAuth
-// @Param        payload body dto.AddBotRequest true "The username of the bot/channel to add."
+// @Param        payload body dto.AddBotRequest true "The username of the channel to add."
 // @Success      201  {object}  dto.AddBotResponse     "Created - The bot was added successfully."
 // @Failure      400  {object}  dto.ErrorResponse      "Bad Request - The request body is invalid, user is not owner/admin of the channel, or channel is already added."
 // @Failure      401  {object}  dto.ErrorResponse      "Unauthorized - The Authorization header is missing or invalid."
