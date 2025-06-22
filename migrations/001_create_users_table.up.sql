@@ -1,20 +1,11 @@
--- Create users table
+-- Create users table for Tribute application
 CREATE TABLE IF NOT EXISTS users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    email VARCHAR(255) UNIQUE NOT NULL,
-    username VARCHAR(50) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL,
-    first_name VARCHAR(100) NOT NULL,
-    last_name VARCHAR(100) NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    user_id BIGINT PRIMARY KEY,
+    earned NUMERIC(10, 2) DEFAULT 0.00,
+    is_verified BOOLEAN DEFAULT FALSE,
+    is_sub_published BOOLEAN DEFAULT FALSE,
+    is_onboarded BOOLEAN DEFAULT FALSE
 );
 
--- Create index on email for faster lookups
-CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-
--- Create index on username for faster lookups
-CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
-
--- Create index on created_at for sorting
-CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at DESC); 
+-- Create index on user_id for faster lookups
+CREATE INDEX IF NOT EXISTS idx_users_user_id ON users(user_id); 

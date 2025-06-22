@@ -1,2 +1,2 @@
--- Add is_onboarded column to users table
-ALTER TABLE users ADD COLUMN is_onboarded BOOLEAN DEFAULT FALSE; 
+-- This migration is no longer needed as is_onboarded column is already included in migration 001
+-- Migration 003_add_onboarding_to_users.up.sql is deprecated 

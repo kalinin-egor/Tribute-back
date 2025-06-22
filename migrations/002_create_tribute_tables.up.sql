@@ -1,11 +1,4 @@
--- Create tribute tables
-
-CREATE TABLE IF NOT EXISTS users (
-    user_id BIGINT PRIMARY KEY,
-    earned NUMERIC(10, 2) DEFAULT 0.00,
-    is_verified BOOLEAN DEFAULT FALSE,
-    is_sub_published BOOLEAN DEFAULT FALSE
-);
+-- Create tribute tables (excluding users table which is created in migration 001)
 
 CREATE TABLE IF NOT EXISTS channels (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
