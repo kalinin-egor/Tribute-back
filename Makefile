@@ -79,10 +79,29 @@ migrate-create:
 install-migrate:
 	go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 
+# Run database migrations (Docker)
+migrate-up-docker:
+	docker-compose exec -T migrate migrate -path /migrations -database "postgres://postgres:password@postgres:5432/tribute_db?sslmode=disable" up
+
+# Run database migrations down (Docker)
+migrate-down-docker:
+	docker-compose exec -T migrate migrate -path /migrations -database "postgres://postgres:password@postgres:5432/tribute_db?sslmode=disable" down
+
+# Check migration status (Docker)
+migrate-status-docker:
+	docker-compose exec -T migrate migrate -path /migrations -database "postgres://postgres:password@postgres:5432/tribute_db?sslmode=disable" version
+
+# Force migration version (Docker)
+migrate-force-docker:
+	@read -p "Enter version to force: " version; \
+	docker-compose exec -T migrate migrate -path /migrations -database "postgres://postgres:password@postgres:5432/tribute_db?sslmode=disable" force $$version
+
 # Development setup with Docker
 dev-setup: deps docker-up
 	@echo "Waiting for services to be ready..."
 	@sleep 10
+	@echo "Running migrations..."
+	@docker-compose exec -T migrate migrate -path /migrations -database "postgres://postgres:password@postgres:5432/tribute_db?sslmode=disable" up
 	@echo "Development environment setup complete!"
 
 # Development setup without Docker

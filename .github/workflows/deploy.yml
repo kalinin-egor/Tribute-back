@@ -95,6 +95,21 @@ jobs:
           echo "⏳ Waiting for services to be ready..."
           sleep 10
           
+          # Run database migrations
+          echo "🗄️ Running database migrations..."
+          docker-compose exec -T migrate migrate -path /migrations -database "postgres://postgres:password@postgres:5432/tribute_db?sslmode=disable" up || {
+            echo "❌ Migration failed, trying alternative approach..."
+            # Alternative: run migrations directly in postgres container
+            docker-compose exec -T postgres psql -U postgres -d tribute_db -c "SELECT version();" || {
+              echo "❌ Cannot connect to database, waiting longer..."
+              sleep 15
+            }
+            # Try migrations again
+            docker-compose exec -T migrate migrate -path /migrations -database "postgres://postgres:password@postgres:5432/tribute_db?sslmode=disable" up
+          }
+          
+          echo "✅ Database migrations completed successfully!"
+          
           # Check container status
           echo "📊 Container status:"
           docker-compose ps

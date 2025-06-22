@@ -9,6 +9,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     networks:
       - tribute_network
     restart: unless-stopped
@@ -24,7 +26,6 @@ services:
       POSTGRES_PASSWORD: password
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./migrations:/docker-entrypoint-initdb.d
     networks:
       - tribute_network
     healthcheck:
@@ -59,6 +60,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    restart: "no"
 
 volumes:
   postgres_data:
