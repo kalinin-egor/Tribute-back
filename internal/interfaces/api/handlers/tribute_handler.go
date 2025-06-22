@@ -336,4 +336,4 @@ func (h *TributeHandler) CreateSubscribe(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"message": "Successfully subscribed"})
-}
+} 
