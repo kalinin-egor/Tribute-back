@@ -52,20 +52,7 @@ services:
   migrate:
     image: migrate/migrate:latest
     container_name: tribute_migrate
-    command: >
-      sh -c "
-        echo 'Checking migration status...';
-        STATUS=$$(migrate -path /migrations -database 'postgres://postgres:password@postgres:5432/tribute_db?sslmode=disable' version 2>&1 || echo 'ERROR');
-        if echo \"$$STATUS\" | grep -q 'dirty'; then
-          echo 'Database is in dirty state. Fixing...';
-          VERSION=$$(echo \"$$STATUS\" | grep -o '[0-9]\+' | head -1);
-          echo \"Forcing version to $$VERSION...\";
-          migrate -path /migrations -database 'postgres://postgres:password@postgres:5432/tribute_db?sslmode=disable' force $$VERSION;
-          echo 'Dirty state fixed!';
-        fi;
-        echo 'Running migrations...';
-        migrate -path /migrations -database 'postgres://postgres:password@postgres:5432/tribute_db?sslmode=disable' up
-      "
+    command: ["-path", "/migrations", "-database", "postgres://postgres:password@postgres:5432/tribute_db?sslmode=disable", "up"]
     volumes:
       - ./migrations:/migrations
     networks:
