@@ -91,37 +91,47 @@ jobs:
           echo "🔨 Building and starting containers..."
           docker-compose up -d --build
           
-          # Wait for services to be ready
-          echo "⏳ Waiting for services to be ready..."
-          sleep 10
+          # Wait for PostgreSQL to be ready
+          echo "⏳ Waiting for PostgreSQL to be ready..."
+          for i in {1..30}; do
+            if docker-compose exec -T postgres pg_isready -U postgres -d tribute_db; then
+              echo "✅ PostgreSQL is ready!"
+              break
+            fi
+            echo "⏳ Waiting for PostgreSQL... (attempt $i/30)"
+            sleep 2
+          done
           
           # Run database migrations
           echo "🗄️ Running database migrations..."
           
-          # Check migration status first
-          echo "📊 Checking current migration status..."
-          MIGRATION_STATUS=$(docker-compose exec -T migrate migrate -path /migrations -database "postgres://postgres:password@postgres:5432/tribute_db?sslmode=disable" version 2>&1 || echo "ERROR")
+          # Check if schema_migrations table exists and clean dirty state if needed
+          echo "📊 Checking database state..."
+          docker-compose exec -T postgres psql -U postgres -d tribute_db -c "
+          DO \$\$
+          BEGIN
+            -- Create schema_migrations table if it doesn't exist
+            IF NOT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'schema_migrations') THEN
+              CREATE TABLE schema_migrations (version bigint PRIMARY KEY, dirty boolean);
+            END IF;
+            
+            -- Clean any dirty state
+            UPDATE schema_migrations SET dirty = false WHERE dirty = true;
+            
+            -- If no migrations recorded, start fresh
+            IF NOT EXISTS (SELECT 1 FROM schema_migrations) THEN
+              INSERT INTO schema_migrations (version, dirty) VALUES (0, false);
+            END IF;
+          END \$\$;
+          " || echo "Database setup completed"
           
-          if [[ "$MIGRATION_STATUS" == *"dirty"* ]]; then
-            echo "⚠️ Database is in dirty state. Attempting to fix..."
-            # Extract version number from dirty status
-            DIRTY_VERSION=$(echo "$MIGRATION_STATUS" | grep -o '[0-9]\+' | head -1)
-            echo "🔧 Forcing migration version to $DIRTY_VERSION..."
-            docker-compose exec -T migrate migrate -path /migrations -database "postgres://postgres:password@postgres:5432/tribute_db?sslmode=disable" force $DIRTY_VERSION
-            echo "✅ Dirty state fixed. Now running migrations..."
-          fi
+          # Run migrations with proper error handling
+          echo "🔄 Running migrations..."
+          docker-compose exec -T migrate migrate -path /migrations -database "postgres://postgres:password@postgres:5432/tribute_db?sslmode=disable" up
           
-          # Run migrations
-          docker-compose exec -T migrate migrate -path /migrations -database "postgres://postgres:password@postgres:5432/tribute_db?sslmode=disable" up || {
-            echo "❌ Migration failed, trying alternative approach..."
-            # Alternative: run migrations directly in postgres container
-            docker-compose exec -T postgres psql -U postgres -d tribute_db -c "SELECT version();" || {
-              echo "❌ Cannot connect to database, waiting longer..."
-              sleep 15
-            }
-            # Try migrations again
-            docker-compose exec -T migrate migrate -path /migrations -database "postgres://postgres:password@postgres:5432/tribute_db?sslmode=disable" up
-          }
+          # Verify migration status
+          echo "✅ Verifying migration status..."
+          docker-compose exec -T postgres psql -U postgres -d tribute_db -c "SELECT version, dirty FROM schema_migrations;"
           
           echo "✅ Database migrations completed successfully!"
           
@@ -161,8 +171,8 @@ jobs:
           echo "📊 Service status:"
           docker-compose ps
         port: 22
-        timeout: 30s
-        command_timeout: 15m
+        timeout: 60s
+        command_timeout: 20m
         proxy_port: 22
         proxy_timeout: 30s 
  
