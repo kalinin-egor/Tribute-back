@@ -1,13 +1,16 @@
 {
+    "schemes": [
+        "http"
+    ],
     "swagger": "2.0",
     "info": {
-        "description": "A clean, well-structured Golang REST API backend built with Gin framework, PostgreSQL database, Redis caching, and JWT authentication.",
+        "description": "This is the backend API for the Tribute application, which integrates with Telegram for user interaction and authentication. It uses Telegram's `initData` for secure, stateless authentication.",
         "title": "Tribute Backend API",
         "termsOfService": "http://swagger.io/terms/",
         "contact": {
             "name": "API Support",
-            "url": "http://www.swagger.io/support",
-            "email": "support@swagger.io"
+            "url": "https://github.com/user/Tribute-back/issues",
+            "email": "support@tribute.app"
         },
         "license": {
             "name": "MIT",
@@ -15,12 +18,17 @@
         },
         "version": "1.0"
     },
-    "host": "localhost:8081",
+    "host": "localhost:8080",
     "basePath": "/api/v1",
     "paths": {
-        "/auth/login": {
+        "/add-bot": {
             "post": {
-                "description": "Authenticate user with email and password, return JWT token",
+                "security": [
+                    {
+                        "TgAuth": []
+                    }
+                ],
+                "description": "Adds a new Telegram channel for the authenticated user. This allows the system to associate a bot with the user's account.",
                 "consumes": [
                     "application/json"
                 ],
@@ -28,88 +36,207 @@
                     "application/json"
                 ],
                 "tags": [
-                    "auth"
+                    "Tribute"
                 ],
-                "summary": "Login user",
+                "summary": "Add a new Bot/Channel",
                 "parameters": [
                     {
-                        "description": "Login credentials",
-                        "name": "request",
+                        "description": "The username of the bot/channel to add.",
+                        "name": "payload",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.LoginRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Login successful",
-                        "schema": {
-                            "$ref": "#/definitions/models.LoginResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad request - validation error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized - invalid credentials",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/auth/register": {
-            "post": {
-                "description": "Create a new user account with email, username, password, and personal information",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "auth"
-                ],
-                "summary": "Register a new user",
-                "parameters": [
-                    {
-                        "description": "User registration data",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/models.CreateUserRequest"
+                            "$ref": "#/definitions/dto.AddBotRequest"
                         }
                     }
                 ],
                 "responses": {
                     "201": {
-                        "description": "User created successfully",
+                        "description": "Created - The bot was added successfully.",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/dto.AddBotResponse"
                         }
                     },
                     "400": {
-                        "description": "Bad request - validation error",
+                        "description": "Bad Request - The request body is invalid.",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
-                    "409": {
-                        "description": "Conflict - user already exists",
+                    "401": {
+                        "description": "Unauthorized - The Authorization header is missing or invalid.",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - The provided initData is invalid or expired.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error - e.g., bot with this username already exists.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/check-verified-passport": {
+            "post": {
+                "description": "**PUBLIC ENDPOINT.** This endpoint is intended to be called by Telegram in response to an admin clicking a button in the verification chat. It should not be called directly by the frontend. It processes verification approvals and rejections.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Webhooks"
+                ],
+                "summary": "Telegram Verification Webhook",
+                "parameters": [
+                    {
+                        "description": "The callback query update sent by Telegram.",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.TelegramUpdate"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success - The callback was processed.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.StatusResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request - The payload from Telegram is malformed.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error - Failed to process the callback data.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/create-subscribe": {
+            "post": {
+                "security": [
+                    {
+                        "TgAuth": []
+                    }
+                ],
+                "description": "Allows an authenticated user (the subscriber) to pay for and subscribe to another user (the creator). This action creates a payment record and updates the creator's earnings.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tribute"
+                ],
+                "summary": "Subscribe to an Author",
+                "parameters": [
+                    {
+                        "description": "The ID of the user to subscribe to and the price.",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.CreateSubscribeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created - The subscription was successful.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.MessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request - The request body is invalid.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - The Authorization header is missing or invalid.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - The provided initData is invalid or expired.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error - e.g., the creator has no subscription tier, or the price is incorrect.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/dashboard": {
+            "get": {
+                "security": [
+                    {
+                        "TgAuth": []
+                    }
+                ],
+                "description": "Retrieves all data for the main dashboard screen. The user is identified via the `initData` in the Authorization header. If the user does not exist in the database, a 404 error is returned, prompting the user to complete onboarding via the `/onboard` endpoint.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tribute"
+                ],
+                "summary": "Get Dashboard Data",
+                "responses": {
+                    "200": {
+                        "description": "Successfully retrieved dashboard data.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.DashboardResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - The Authorization header is missing or invalid.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - The provided initData is invalid or expired.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found - The user has not been onboarded yet.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error - An unexpected error occurred.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -139,173 +266,63 @@
                 }
             }
         },
-        "/users/": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Retrieve a paginated list of all users (admin only)",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "users"
-                ],
-                "summary": "List all users",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Number of users to return (default: 10)",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Number of users to skip (default: 0)",
-                        "name": "offset",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "List of users",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Bad request - invalid parameters",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized - not authenticated",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/users/profile": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Retrieve the profile of the currently authenticated user",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "users"
-                ],
-                "summary": "Get current user profile",
-                "responses": {
-                    "200": {
-                        "description": "User profile",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized - not authenticated",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "404": {
-                        "description": "Not found - user not found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            },
+        "/onboard": {
             "put": {
                 "security": [
                     {
-                        "BearerAuth": []
+                        "TgAuth": []
                     }
                 ],
-                "description": "Update the profile information of the currently authenticated user",
-                "consumes": [
-                    "application/json"
-                ],
+                "description": "Creates a user record if one doesn't exist, or updates an existing user to mark them as onboarded. This is the first endpoint a new user should call. It is idempotent.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "users"
+                    "Tribute"
                 ],
-                "summary": "Update current user profile",
-                "parameters": [
-                    {
-                        "description": "User update data",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/models.UpdateUserRequest"
-                        }
-                    }
-                ],
+                "summary": "Onboard a User",
                 "responses": {
                     "200": {
-                        "description": "User updated successfully",
+                        "description": "Success - The user already existed and has been marked as onboarded.",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/dto.OnboardResponse"
                         }
                     },
-                    "400": {
-                        "description": "Bad request - validation error",
+                    "201": {
+                        "description": "Created - A new user was created and marked as onboarded.",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/dto.OnboardResponse"
                         }
                     },
                     "401": {
-                        "description": "Unauthorized - not authenticated",
+                        "description": "Unauthorized - The Authorization header is missing or invalid.",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
-                    "404": {
-                        "description": "Not found - user not found",
+                    "403": {
+                        "description": "Forbidden - The provided initData is invalid or expired.",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error - An unexpected error occurred.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
             }
         },
-        "/users/{id}": {
-            "get": {
+        "/publish-subscription": {
+            "put": {
                 "security": [
                     {
-                        "BearerAuth": []
+                        "TgAuth": []
                     }
                 ],
-                "description": "Retrieve a specific user by their ID (admin only)",
+                "description": "Allows an author to create or update their public subscription details (title, description, price). This is an idempotent operation. The user must have at least one channel added via `/add-bot` to use this.",
                 "consumes": [
                     "application/json"
                 ],
@@ -313,56 +330,62 @@
                     "application/json"
                 ],
                 "tags": [
-                    "users"
+                    "Tribute"
                 ],
-                "summary": "Get user by ID",
+                "summary": "Publish or Update a Subscription Tier",
                 "parameters": [
                     {
-                        "type": "string",
-                        "description": "User ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
+                        "description": "The details of the subscription tier to publish.",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.PublishSubscriptionRequest"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "User data",
+                        "description": "Success - The subscription was published or updated successfully.",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/dto.PublishSubscriptionResponse"
                         }
                     },
                     "400": {
-                        "description": "Bad request - invalid ID",
+                        "description": "Bad Request - The request body is invalid.",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "401": {
-                        "description": "Unauthorized - not authenticated",
+                        "description": "Unauthorized - The Authorization header is missing or invalid.",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
-                    "404": {
-                        "description": "Not found - user not found",
+                    "403": {
+                        "description": "Forbidden - The provided initData is invalid or expired.",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error - e.g., the user has no channels.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
-            },
-            "delete": {
+            }
+        },
+        "/set-up-payouts": {
+            "post": {
                 "security": [
                     {
-                        "BearerAuth": []
+                        "TgAuth": []
                     }
                 ],
-                "description": "Delete a specific user by their ID (admin only)",
+                "description": "Registers a user's bank card as a payout method. **IMPORTANT:** Card details are NOT stored in our database. They are forwarded directly to a secure payment gateway. The user must be verified to use this endpoint.",
                 "consumes": [
                     "application/json"
                 ],
@@ -370,38 +393,112 @@
                     "application/json"
                 ],
                 "tags": [
-                    "users"
+                    "Tribute"
                 ],
-                "summary": "Delete user",
+                "summary": "Set Up Payout Method",
                 "parameters": [
                     {
-                        "type": "string",
-                        "description": "User ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
+                        "description": "The user's card details.",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.SetUpPayoutsRequest"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "User deleted successfully",
+                        "description": "Success - The payout method was registered successfully.",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/dto.MessageResponse"
                         }
                     },
                     "400": {
-                        "description": "Bad request - invalid ID",
+                        "description": "Bad Request - The request body is invalid.",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "401": {
-                        "description": "Unauthorized - not authenticated",
+                        "description": "Unauthorized - The Authorization header is missing or invalid.",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - The provided initData is invalid or expired, or the user is not verified.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error - The payment gateway returned an error.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/upload-verified-passport": {
+            "post": {
+                "security": [
+                    {
+                        "TgAuth": []
+                    }
+                ],
+                "description": "Uploads a user's photo and passport scan for manual verification. Both images must be provided as base64 encoded strings. The documents are sent to a private admin chat for review.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tribute"
+                ],
+                "summary": "Upload Documents for Verification",
+                "parameters": [
+                    {
+                        "description": "JSON object containing base64 encoded photo and passport.",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.UploadVerifiedPassportRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success - The verification request was sent successfully.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.MessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request - The request body is invalid or missing required fields.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - The Authorization header is missing or invalid.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - The provided initData is invalid or expired.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error - Failed to send documents to the verification service.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -409,111 +506,288 @@
         }
     },
     "definitions": {
-        "models.CreateUserRequest": {
+        "dto.AddBotRequest": {
             "type": "object",
-            "required": [
-                "email",
-                "first_name",
-                "last_name",
-                "password",
-                "username"
-            ],
             "properties": {
-                "email": {
+                "access_token": {
                     "type": "string"
                 },
-                "first_name": {
-                    "type": "string"
-                },
-                "last_name": {
-                    "type": "string"
-                },
-                "password": {
-                    "type": "string",
-                    "minLength": 6
-                },
-                "username": {
-                    "type": "string",
-                    "maxLength": 50,
-                    "minLength": 3
-                }
-            }
-        },
-        "models.LoginRequest": {
-            "type": "object",
-            "required": [
-                "email",
-                "password"
-            ],
-            "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "password": {
+                "bot-username": {
                     "type": "string"
                 }
             }
         },
-        "models.LoginResponse": {
+        "dto.AddBotResponse": {
             "type": "object",
             "properties": {
-                "token": {
+                "channel": {
+                    "$ref": "#/definitions/dto.ChannelDTO"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.CallbackQuery": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "string"
+                },
+                "from": {
+                    "$ref": "#/definitions/dto.User"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "message": {
+                    "$ref": "#/definitions/dto.Message"
+                }
+            }
+        },
+        "dto.ChannelDTO": {
+            "type": "object",
+            "properties": {
+                "channel_username": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.Chat": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.CreateSubscribeRequest": {
+            "type": "object",
+            "properties": {
+                "price": {
+                    "type": "number"
+                },
+                "user_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.DashboardResponse": {
+            "type": "object",
+            "properties": {
+                "channels-and-groups": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.ChannelDTO"
+                    }
+                },
+                "earn": {
+                    "type": "number"
+                },
+                "is-sub-published": {
+                    "type": "boolean"
+                },
+                "is-verified": {
+                    "type": "boolean"
+                },
+                "payments-history": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.PaymentDTO"
+                    }
+                },
+                "subscriptions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.SubDTO"
+                    }
+                }
+            }
+        },
+        "dto.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.Message": {
+            "type": "object",
+            "properties": {
+                "chat": {
+                    "$ref": "#/definitions/dto.Chat"
+                },
+                "message_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.MessageResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.OnboardResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
                     "type": "string"
                 },
                 "user": {
-                    "$ref": "#/definitions/models.User"
+                    "$ref": "#/definitions/dto.UserResponse"
                 }
             }
         },
-        "models.UpdateUserRequest": {
+        "dto.PaymentDTO": {
             "type": "object",
             "properties": {
-                "email": {
+                "created-date": {
                     "type": "string"
                 },
-                "first_name": {
+                "description": {
                     "type": "string"
-                },
-                "last_name": {
-                    "type": "string"
-                },
-                "username": {
-                    "type": "string",
-                    "maxLength": 50,
-                    "minLength": 3
                 }
             }
         },
-        "models.User": {
+        "dto.PublishSubscriptionRequest": {
             "type": "object",
             "properties": {
-                "created_at": {
+                "access_token": {
                     "type": "string"
                 },
-                "email": {
+                "button-text": {
                     "type": "string"
                 },
-                "first_name": {
+                "description": {
+                    "type": "string"
+                },
+                "price": {
+                    "type": "number"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.PublishSubscriptionResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "subscription": {
+                    "$ref": "#/definitions/dto.SubDTO"
+                }
+            }
+        },
+        "dto.SetUpPayoutsRequest": {
+            "type": "object",
+            "properties": {
+                "access_token": {
+                    "type": "string"
+                },
+                "card-cvv": {
+                    "type": "string"
+                },
+                "card-date": {
+                    "type": "string"
+                },
+                "card-number": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.StatusResponse": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.SubDTO": {
+            "type": "object",
+            "properties": {
+                "description": {
                     "type": "string"
                 },
                 "id": {
                     "type": "string"
                 },
-                "last_name": {
+                "price": {
+                    "type": "number"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.TelegramUpdate": {
+            "type": "object",
+            "properties": {
+                "callback_query": {
+                    "$ref": "#/definitions/dto.CallbackQuery"
+                },
+                "update_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.UploadVerifiedPassportRequest": {
+            "type": "object",
+            "properties": {
+                "access_token": {
                     "type": "string"
                 },
-                "updated_at": {
+                "user-passport": {
+                    "description": "Assuming base64 encoded string",
                     "type": "string"
                 },
-                "username": {
+                "user-photo": {
+                    "description": "Assuming base64 encoded string",
                     "type": "string"
+                }
+            }
+        },
+        "dto.User": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.UserResponse": {
+            "type": "object",
+            "properties": {
+                "earned": {
+                    "type": "number"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "is_onboarded": {
+                    "type": "boolean"
+                },
+                "is_sub_published": {
+                    "type": "boolean"
+                },
+                "is_verified": {
+                    "type": "boolean"
                 }
             }
         }
     },
     "securityDefinitions": {
-        "BearerAuth": {
-            "description": "Type \"Bearer\" followed by a space and JWT token.",
+        "TgAuth": {
+            "description": "**Authentication for Telegram Web Apps.** \\\nEnter your token in the format: `TgAuth \u003cinitData\u003e`. \\\nThe `\u003cinitData\u003e` string is provided by the Telegram client when the web app is opened.",
             "type": "apiKey",
             "name": "Authorization",
             "in": "header"

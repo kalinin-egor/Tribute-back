@@ -1,23 +1,25 @@
 // @title           Tribute Backend API
 // @version         1.0
-// @description     A clean, well-structured Golang REST API backend built with Gin framework, PostgreSQL database, Redis caching, and JWT authentication.
+// @description     This is the backend API for the Tribute application, which integrates with Telegram for user interaction and authentication. It uses Telegram's `initData` for secure, stateless authentication.
 // @termsOfService  http://swagger.io/terms/
 
 // @contact.name   API Support
-// @contact.url    http://www.swagger.io/support
-// @contact.email  support@swagger.io
+// @contact.url    https://github.com/user/Tribute-back/issues
+// @contact.email  support@tribute.app
 
 // @license.name  MIT
 // @license.url   https://opensource.org/licenses/MIT
 
-// @host localhost:8080
-// @BasePath /api/v1
-// @schemes http
+// @host      localhost:8080
+// @BasePath  /api/v1
+// @schemes   http
 
-// @securityDefinitions.apikey BearerAuth
-// @in header
-// @name Authorization
-// @description Type "Bearer" followed by a space and JWT token.
+// @securityDefinitions.apikey  TgAuth
+// @in                          header
+// @name                        Authorization
+// @description                 **Authentication for Telegram Web Apps.** \
+// @description                 Enter your token in the format: `TgAuth <initData>`. \
+// @description                 The `<initData>` string is provided by the Telegram client when the web app is opened.
 
 package main
 

@@ -266,21 +266,21 @@ func (s *TributeService) CreateSubscription(subscriberID int64, creatorID int64,
 	return nil
 }
 
-func (s *TributeService) OnboardUser(userID int64) (*entities.User, error) {
+func (s *TributeService) OnboardUser(userID int64) (user *entities.User, created bool, err error) {
 	// Check if user already exists
 	existingUser, err := s.users.FindByID(userID)
 	if err != nil && err.Error() != "user not found" { // A real error occurred
-		return nil, err
+		return nil, false, err
 	}
 	if existingUser != nil {
 		if !existingUser.IsOnboarded {
 			existingUser.IsOnboarded = true
 			if err := s.users.Update(existingUser); err != nil {
-				return nil, err
+				return nil, false, err
 			}
-			return existingUser, nil
+			return existingUser, false, nil // User existed, but was now onboarded (updated)
 		}
-		return existingUser, nil // User already exists and is onboarded
+		return existingUser, false, nil // User already existed and was onboarded
 	}
 
 	// Create new user if not found
@@ -292,10 +292,10 @@ func (s *TributeService) OnboardUser(userID int64) (*entities.User, error) {
 	}
 
 	if err := s.users.Create(newUser); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
-	return newUser, nil
+	return newUser, true, nil
 }
 
 // TODO: Implement methods for each endpoint

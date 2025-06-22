@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strings"
 	"time"
 	"tribute-back/internal/application/services"
 	"tribute-back/internal/infrastructure/payouts"
@@ -25,14 +26,15 @@ func (h *TributeHandler) RegisterRoutes(api *gin.RouterGroup) {
 }
 
 // @Summary      Get Dashboard Data
-// @Description  Retrieves all data for the main dashboard screen based on the authenticated user.
+// @Description  Retrieves all data for the main dashboard screen. The user is identified via the `initData` in the Authorization header. If the user does not exist in the database, a 404 error is returned, prompting the user to complete onboarding via the `/onboard` endpoint.
 // @Tags         Tribute
 // @Produce      json
-// @Security     ApiKeyAuth
-// @Success      200  {object}  dto.DashboardResponse
-// @Failure      401  {object}  dto.ErrorResponse
-// @Failure      404  {object}  dto.ErrorResponse
-// @Failure      500  {object}  dto.ErrorResponse
+// @Security     TgAuth
+// @Success      200  {object}  dto.DashboardResponse  "Successfully retrieved dashboard data."
+// @Failure      401  {object}  dto.ErrorResponse      "Unauthorized - The Authorization header is missing or invalid."
+// @Failure      403  {object}  dto.ErrorResponse      "Forbidden - The provided initData is invalid or expired."
+// @Failure      404  {object}  dto.ErrorResponse      "Not Found - The user has not been onboarded yet."
+// @Failure      500  {object}  dto.ErrorResponse      "Internal Server Error - An unexpected error occurred."
 // @Router       /dashboard [get]
 func (h *TributeHandler) Dashboard(c *gin.Context) {
 	userID, exists := c.Get("userID")
@@ -83,17 +85,66 @@ func (h *TributeHandler) Dashboard(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-// @Summary      Add a new bot/channel
-// @Description  Adds a new Telegram channel for the authenticated user.
+// @Summary      Onboard a User
+// @Description  Creates a user record if one doesn't exist, or updates an existing user to mark them as onboarded. This is the first endpoint a new user should call. It is idempotent.
+// @Tags         Tribute
+// @Produce      json
+// @Security     TgAuth
+// @Success      200  {object}  dto.OnboardResponse  "Success - The user already existed and has been marked as onboarded."
+// @Success      201  {object}  dto.OnboardResponse  "Created - A new user was created and marked as onboarded."
+// @Failure      401  {object}  dto.ErrorResponse    "Unauthorized - The Authorization header is missing or invalid."
+// @Failure      403  {object}  dto.ErrorResponse    "Forbidden - The provided initData is invalid or expired."
+// @Failure      500  {object}  dto.ErrorResponse    "Internal Server Error - An unexpected error occurred."
+// @Router       /onboard [put]
+func (h *TributeHandler) Onboard(c *gin.Context) {
+	userID, ok := c.Get("userID")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, dto.ErrorResponse{Error: "User ID not found in context"})
+		return
+	}
+
+	id, ok := userID.(int64)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "User ID has an invalid type"})
+		return
+	}
+
+	user, created, err := h.service.OnboardUser(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	response := dto.OnboardResponse{
+		Message: "User is onboarded successfully",
+		User: dto.UserResponse{
+			ID:             user.ID,
+			Earned:         user.Earned,
+			IsVerified:     user.IsVerified,
+			IsSubPublished: user.IsSubPublished,
+			IsOnboarded:    user.IsOnboarded,
+		},
+	}
+
+	if created {
+		c.JSON(http.StatusCreated, response)
+	} else {
+		c.JSON(http.StatusOK, response)
+	}
+}
+
+// @Summary      Add a new Bot/Channel
+// @Description  Adds a new Telegram channel for the authenticated user. This allows the system to associate a bot with the user's account.
 // @Tags         Tribute
 // @Accept       json
 // @Produce      json
-// @Security     ApiKeyAuth
-// @Param        request body dto.AddBotRequest true "Bot Username"
-// @Success      201  {object}  dto.AddBotResponse
-// @Failure      400  {object}  dto.ErrorResponse
-// @Failure      401  {object}  dto.ErrorResponse
-// @Failure      500  {object}  dto.ErrorResponse
+// @Security     TgAuth
+// @Param        payload body dto.AddBotRequest true "The username of the bot/channel to add."
+// @Success      201  {object}  dto.AddBotResponse     "Created - The bot was added successfully."
+// @Failure      400  {object}  dto.ErrorResponse      "Bad Request - The request body is invalid."
+// @Failure      401  {object}  dto.ErrorResponse      "Unauthorized - The Authorization header is missing or invalid."
+// @Failure      403  {object}  dto.ErrorResponse      "Forbidden - The provided initData is invalid or expired."
+// @Failure      500  {object}  dto.ErrorResponse      "Internal Server Error - e.g., bot with this username already exists."
 // @Router       /add-bot [post]
 func (h *TributeHandler) AddBot(c *gin.Context) {
 	userID, exists := c.Get("userID")
@@ -129,17 +180,18 @@ func (h *TributeHandler) AddBot(c *gin.Context) {
 	})
 }
 
-// @Summary      Upload documents for verification
-// @Description  Uploads user photo and passport (as base64 strings) to start the verification process.
+// @Summary      Upload Documents for Verification
+// @Description  Uploads a user's photo and passport scan for manual verification. Both images must be provided as base64 encoded strings. The documents are sent to a private admin chat for review.
 // @Tags         Tribute
 // @Accept       json
 // @Produce      json
-// @Security     ApiKeyAuth
-// @Param        request body dto.UploadVerifiedPassportRequest true "User Documents"
-// @Success      200  {object}  dto.MessageResponse
-// @Failure      400  {object}  dto.ErrorResponse
-// @Failure      401  {object}  dto.ErrorResponse
-// @Failure      500  {object}  dto.ErrorResponse
+// @Security     TgAuth
+// @Param        payload body dto.UploadVerifiedPassportRequest true "JSON object containing base64 encoded photo and passport."
+// @Success      200  {object}  dto.MessageResponse    "Success - The verification request was sent successfully."
+// @Failure      400  {object}  dto.ErrorResponse      "Bad Request - The request body is invalid or missing required fields."
+// @Failure      401  {object}  dto.ErrorResponse      "Unauthorized - The Authorization header is missing or invalid."
+// @Failure      403  {object}  dto.ErrorResponse      "Forbidden - The provided initData is invalid or expired."
+// @Failure      500  {object}  dto.ErrorResponse      "Internal Server Error - Failed to send documents to the verification service."
 // @Router       /upload-verified-passport [post]
 func (h *TributeHandler) UploadVerifiedPassport(c *gin.Context) {
 	userID, exists := c.Get("userID")
@@ -173,15 +225,15 @@ func (h *TributeHandler) UploadVerifiedPassport(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.MessageResponse{Message: "Verification request sent successfully"})
 }
 
-// @Summary      Telegram Webhook for Verification
-// @Description  This is a public endpoint for receiving callback queries from Telegram for verification approval or rejection.
+// @Summary      Telegram Verification Webhook
+// @Description  **PUBLIC ENDPOINT.** This endpoint is intended to be called by Telegram in response to an admin clicking a button in the verification chat. It should not be called directly by the frontend. It processes verification approvals and rejections.
 // @Tags         Webhooks
 // @Accept       json
 // @Produce      json
-// @Param        update body dto.TelegramUpdate true "Telegram Callback Query"
-// @Success      200  {object}  dto.StatusResponse
-// @Failure      400  {object}  dto.ErrorResponse
-// @Failure      500  {object}  dto.ErrorResponse
+// @Param        payload body dto.TelegramUpdate true "The callback query update sent by Telegram."
+// @Success      200  {object}  dto.StatusResponse     "Success - The callback was processed."
+// @Failure      400  {object}  dto.ErrorResponse      "Bad Request - The payload from Telegram is malformed."
+// @Failure      500  {object}  dto.ErrorResponse      "Internal Server Error - Failed to process the callback data."
 // @Router       /check-verified-passport [post]
 func (h *TributeHandler) CheckVerifiedPassport(c *gin.Context) {
 	var update dto.TelegramUpdate
@@ -211,27 +263,29 @@ func (h *TributeHandler) CheckVerifiedPassport(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.StatusResponse{Status: "ok"})
 }
 
-// @Summary      Set up payout method
-// @Description  Sets up the payout method for the authenticated user by providing card details. The details are not stored.
+// @Summary      Set Up Payout Method
+// @Description  Registers a user's bank card as a payout method. **IMPORTANT:** Card details are NOT stored in our database. They are forwarded directly to a secure payment gateway. The user must be verified to use this endpoint.
 // @Tags         Tribute
 // @Accept       json
 // @Produce      json
-// @Security     ApiKeyAuth
-// @Param        request body dto.SetUpPayoutsRequest true "Card Details"
-// @Success      200  {object}  dto.MessageResponse
-// @Failure      400  {object}  dto.ErrorResponse
-// @Failure      401  {object}  dto.ErrorResponse
-// @Failure      500  {object}  dto.ErrorResponse
+// @Security     TgAuth
+// @Param        payload body dto.SetUpPayoutsRequest true "The user's card details."
+// @Success      200  {object}  dto.MessageResponse    "Success - The payout method was registered successfully."
+// @Failure      400  {object}  dto.ErrorResponse      "Bad Request - The request body is invalid."
+// @Failure      401  {object}  dto.ErrorResponse      "Unauthorized - The Authorization header is missing or invalid."
+// @Failure      403  {object}  dto.ErrorResponse      "Forbidden - The provided initData is invalid or expired, or the user is not verified."
+// @Failure      500  {object}  dto.ErrorResponse      "Internal Server Error - The payment gateway returned an error."
 // @Router       /set-up-payouts [post]
 func (h *TributeHandler) SetUpPayouts(c *gin.Context) {
-	userID, exists := c.Get("userID")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, dto.ErrorResponse{Error: "User not authenticated"})
+	userID, ok := c.Get("userID")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, dto.ErrorResponse{Error: "User ID not found in context"})
 		return
 	}
+
 	id, ok := userID.(int64)
 	if !ok {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Invalid user ID format in token"})
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "User ID has an invalid type"})
 		return
 	}
 
@@ -248,24 +302,29 @@ func (h *TributeHandler) SetUpPayouts(c *gin.Context) {
 	}
 
 	if err := h.service.SetUpPayouts(id, cardDetails); err != nil {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: err.Error()})
+		if strings.Contains(err.Error(), "user must be verified") {
+			c.JSON(http.StatusForbidden, dto.ErrorResponse{Error: err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to set up payouts: " + err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, dto.MessageResponse{Message: "Payout method set up successfully"})
 }
 
-// @Summary      Publish or update a subscription tier
-// @Description  Allows an author to publish or update their subscription details.
+// @Summary      Publish or Update a Subscription Tier
+// @Description  Allows an author to create or update their public subscription details (title, description, price). This is an idempotent operation. The user must have at least one channel added via `/add-bot` to use this.
 // @Tags         Tribute
 // @Accept       json
 // @Produce      json
-// @Security     ApiKeyAuth
-// @Param        request body dto.PublishSubscriptionRequest true "Subscription Details"
-// @Success      200  {object}  dto.PublishSubscriptionResponse
-// @Failure      400  {object}  dto.ErrorResponse
-// @Failure      401  {object}  dto.ErrorResponse
-// @Failure      500  {object}  dto.ErrorResponse
+// @Security     TgAuth
+// @Param        payload body dto.PublishSubscriptionRequest true "The details of the subscription tier to publish."
+// @Success      200  {object}  dto.PublishSubscriptionResponse "Success - The subscription was published or updated successfully."
+// @Failure      400  {object}  dto.ErrorResponse               "Bad Request - The request body is invalid."
+// @Failure      401  {object}  dto.ErrorResponse               "Unauthorized - The Authorization header is missing or invalid."
+// @Failure      403  {object}  dto.ErrorResponse               "Forbidden - The provided initData is invalid or expired."
+// @Failure      500  {object}  dto.ErrorResponse               "Internal Server Error - e.g., the user has no channels."
 // @Router       /publish-subscription [put]
 func (h *TributeHandler) PublishSubscription(c *gin.Context) {
 	userID, exists := c.Get("userID")
@@ -302,17 +361,18 @@ func (h *TributeHandler) PublishSubscription(c *gin.Context) {
 	})
 }
 
-// @Summary      Create a subscription to an author
-// @Description  Allows an authenticated user (subscriber) to subscribe to another user (creator).
+// @Summary      Subscribe to an Author
+// @Description  Allows an authenticated user (the subscriber) to pay for and subscribe to another user (the creator). This action creates a payment record and updates the creator's earnings.
 // @Tags         Tribute
 // @Accept       json
 // @Produce      json
-// @Security     ApiKeyAuth
-// @Param        request body dto.CreateSubscribeRequest true "Subscription Request"
-// @Success      201  {object}  dto.MessageResponse
-// @Failure      400  {object}  dto.ErrorResponse
-// @Failure      401  {object}  dto.ErrorResponse
-// @Failure      500  {object}  dto.ErrorResponse
+// @Security     TgAuth
+// @Param        payload body dto.CreateSubscribeRequest true "The ID of the user to subscribe to and the price."
+// @Success      201  {object}  dto.MessageResponse      "Created - The subscription was successful."
+// @Failure      400  {object}  dto.ErrorResponse        "Bad Request - The request body is invalid."
+// @Failure      401  {object}  dto.ErrorResponse        "Unauthorized - The Authorization header is missing or invalid."
+// @Failure      403  {object}  dto.ErrorResponse        "Forbidden - The provided initData is invalid or expired."
+// @Failure      500  {object}  dto.ErrorResponse        "Internal Server Error - e.g., the creator has no subscription tier, or the price is incorrect."
 // @Router       /create-subscribe [post]
 func (h *TributeHandler) CreateSubscribe(c *gin.Context) {
 	subscriberID, exists := c.Get("userID")
@@ -339,46 +399,4 @@ func (h *TributeHandler) CreateSubscribe(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, dto.MessageResponse{Message: "Successfully subscribed"})
-}
-
-// @Summary      Onboard a new user
-// @Description  Creates or updates a user record. Marks the user as onboarded.
-// @Tags         Tribute
-// @Accept       json
-// @Produce      json
-// @Security     ApiKeyAuth
-// @Success      200  {object}  dto.OnboardResponse "User already existed and was updated"
-// @Success      201  {object}  dto.OnboardResponse "User created successfully"
-// @Failure      401  {object}  dto.ErrorResponse
-// @Failure      500  {object}  dto.ErrorResponse
-// @Router       /onboard [put]
-func (h *TributeHandler) Onboard(c *gin.Context) {
-	userID, exists := c.Get("userID")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, dto.ErrorResponse{Error: "User not authenticated"})
-		return
-	}
-	id, ok := userID.(int64)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Invalid user ID format in token"})
-		return
-	}
-
-	user, err := h.service.OnboardUser(id)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: err.Error()})
-		return
-	}
-
-	// A real implementation would distinguish between create and update to set status code
-	c.JSON(http.StatusOK, dto.OnboardResponse{
-		Message: "User is onboarded",
-		User: dto.UserResponse{
-			ID:             user.ID,
-			Earned:         user.Earned,
-			IsVerified:     user.IsVerified,
-			IsSubPublished: user.IsSubPublished,
-			IsOnboarded:    user.IsOnboarded,
-		},
-	})
 }
