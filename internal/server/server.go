@@ -37,8 +37,11 @@ func NewServer(db *sql.DB, redisClient *redis.Client) *gin.Engine {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
-	// Services
-	jwtService := auth.NewJWTService()
+	// Infrastructure Services
+	tgAuthService, err := auth.NewTelegramAuthService()
+	if err != nil {
+		log.Fatal("Failed to initialize Telegram Auth Service: ", err)
+	}
 	botService, err := telegram.NewBotService()
 	if err != nil {
 		log.Fatal("Failed to initialize Telegram Bot Service:", err)
@@ -60,25 +63,22 @@ func NewServer(db *sql.DB, redisClient *redis.Client) *gin.Engine {
 	// Public webhook for Telegram
 	router.POST("/api/v1/check-verified-passport", tributeHandler.CheckVerifiedPassport)
 
-	// Register protected routes
+	// Protected routes
 	api := router.Group("/api/v1")
-	api.Use(middleware.AuthMiddleware(jwtService))
+	api.Use(middleware.TelegramAuthMiddleware(tgAuthService))
 	{
-		// All other routes are registered here and are protected
 		api.GET("/dashboard", tributeHandler.Dashboard)
+		api.PUT("/onboard", tributeHandler.Onboard)
 		api.POST("/add-bot", tributeHandler.AddBot)
 		api.POST("/upload-verified-passport", tributeHandler.UploadVerifiedPassport)
 		api.POST("/set-up-payouts", tributeHandler.SetUpPayouts)
 		api.PUT("/publish-subscription", tributeHandler.PublishSubscription)
 		api.POST("/create-subscribe", tributeHandler.CreateSubscribe)
-		api.PUT("/onboard", tributeHandler.Onboard)
 	}
 
-	// Swagger
+	// Swagger - no test routes needed anymore
 	if config.GetEnv("GIN_MODE", "debug") != "release" {
-		// The url for swagger docs is /swagger/index.html
 		router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
-		// Alias for /docs
 		router.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	}
 
