@@ -298,5 +298,32 @@ func (s *TributeService) OnboardUser(userID int64) (user *entities.User, created
 	return newUser, true, nil
 }
 
+// CreateUser creates a new user if one doesn't exist, otherwise returns existing user
+func (s *TributeService) CreateUser(userID int64) (*entities.User, error) {
+	// Check if user already exists
+	existingUser, err := s.users.FindByID(userID)
+	if err != nil {
+		return nil, err
+	}
+	if existingUser != nil {
+		// User already exists, return it without creating
+		return existingUser, nil
+	}
+
+	// Create new user if not found
+	newUser := &entities.User{
+		ID:          userID,
+		Earned:      0,
+		IsVerified:  false,
+		IsOnboarded: false,
+	}
+
+	if err := s.users.Create(newUser); err != nil {
+		return nil, err
+	}
+
+	return newUser, nil
+}
+
 // TODO: Implement methods for each endpoint
 // e.g. GetDashboardData, AddBot, UploadPassport, etc.

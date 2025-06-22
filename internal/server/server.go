@@ -69,6 +69,7 @@ func NewServer(db *sql.DB, redisClient *redis.Client) *gin.Engine {
 	{
 		api.GET("/dashboard", tributeHandler.Dashboard)
 		api.PUT("/onboard", tributeHandler.Onboard)
+		api.POST("/create-user", tributeHandler.CreateUser)
 		api.POST("/add-bot", tributeHandler.AddBot)
 		api.POST("/upload-verified-passport", tributeHandler.UploadVerifiedPassport)
 		api.POST("/set-up-payouts", tributeHandler.SetUpPayouts)

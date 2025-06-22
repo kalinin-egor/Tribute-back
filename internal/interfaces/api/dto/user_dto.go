@@ -150,3 +150,10 @@ type PublishSubscriptionResponse struct {
 	Message      string `json:"message"`
 	Subscription SubDTO `json:"subscription"`
 }
+
+// CreateUserResponse is the response for creating a user
+type CreateUserResponse struct {
+	Message string       `json:"message"`
+	User    UserResponse `json:"user"`
+	Created bool         `json:"created"`
+}
