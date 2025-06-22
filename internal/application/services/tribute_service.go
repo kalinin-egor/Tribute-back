@@ -81,6 +81,30 @@ func (s *TributeService) GetDashboardData(userID int64) (*DashboardData, error) 
 }
 
 func (s *TributeService) AddBot(userID int64, botUsername string) (*entities.Channel, error) {
+	// Send initial notification
+	initialMessage := fmt.Sprintf("Just a moment, we are checking bot permissions in %s", botUsername)
+	if err := s.telegramBot.SendMessage(userID, initialMessage); err != nil {
+		// Log error but don't fail the operation
+		fmt.Printf("Failed to send initial message to user %d: %v\n", userID, err)
+	}
+
+	// Check if user is owner/admin of the channel
+	chatMember, err := s.telegramBot.CheckChannelMembership(botUsername, userID)
+	if err != nil {
+		// Send error message to user
+		errorMessage := "Failed to check channel permissions. Please try again."
+		s.telegramBot.SendMessage(userID, errorMessage)
+		return nil, fmt.Errorf("failed to check channel membership: %w", err)
+	}
+
+	// Only allow owners and administrators to add their channels
+	if chatMember.Status != "creator" && chatMember.Status != "administrator" {
+		// Send rejection message to user
+		rejectionMessage := "You are not the owner of this channel."
+		s.telegramBot.SendMessage(userID, rejectionMessage)
+		return nil, errors.New("you must be the owner or administrator of this channel to add it")
+	}
+
 	// Optional: Check if the bot (channel) already exists for this user to prevent duplicates
 	existingChannels, err := s.channels.FindByUserID(userID)
 	if err != nil {
@@ -88,7 +112,10 @@ func (s *TributeService) AddBot(userID int64, botUsername string) (*entities.Cha
 	}
 	for _, ch := range existingChannels {
 		if ch.ChannelUsername == botUsername {
-			return nil, errors.New("bot with this username already exists for the user")
+			// Send duplicate message to user
+			duplicateMessage := fmt.Sprintf("Channel %s is already added to your account.", botUsername)
+			s.telegramBot.SendMessage(userID, duplicateMessage)
+			return nil, errors.New("this channel is already added to your account")
 		}
 	}
 
@@ -100,6 +127,13 @@ func (s *TributeService) AddBot(userID int64, botUsername string) (*entities.Cha
 	err = s.channels.Create(channel)
 	if err != nil {
 		return nil, err
+	}
+
+	// Send success message to user
+	successMessage := fmt.Sprintf("Good! You added bot to channel: %s (@%s)", botUsername, botUsername)
+	if err := s.telegramBot.SendMessage(userID, successMessage); err != nil {
+		// Log error but don't fail the operation
+		fmt.Printf("Failed to send success message to user %d: %v\n", userID, err)
 	}
 
 	return channel, nil

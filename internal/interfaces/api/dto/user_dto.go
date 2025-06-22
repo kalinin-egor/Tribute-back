@@ -43,8 +43,7 @@ type DashboardResponse struct {
 
 // AddBot
 type AddBotRequest struct {
-	AccessToken string `json:"access_token"`
-	BotUsername string `json:"bot-username"`
+	BotUsername string `json:"bot-username" binding:"required"`
 }
 
 // UploadVerifiedPassport

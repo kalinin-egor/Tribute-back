@@ -140,17 +140,17 @@ func (h *TributeHandler) Onboard(c *gin.Context) {
 }
 
 // @Summary      Add a new Bot/Channel
-// @Description  Adds a new Telegram channel for the authenticated user. This allows the system to associate a bot with the user's account.
+// @Description  Adds a new Telegram channel for the authenticated user. The user must be owner or administrator of the channel. Sends Telegram notifications about the process status. This allows the system to associate a bot with the user's account.
 // @Tags         Tribute
 // @Accept       json
 // @Produce      json
 // @Security     TgAuth
 // @Param        payload body dto.AddBotRequest true "The username of the bot/channel to add."
 // @Success      201  {object}  dto.AddBotResponse     "Created - The bot was added successfully."
-// @Failure      400  {object}  dto.ErrorResponse      "Bad Request - The request body is invalid."
+// @Failure      400  {object}  dto.ErrorResponse      "Bad Request - The request body is invalid, user is not owner/admin of the channel, or channel is already added."
 // @Failure      401  {object}  dto.ErrorResponse      "Unauthorized - The Authorization header is missing or invalid."
 // @Failure      403  {object}  dto.ErrorResponse      "Forbidden - The provided initData is invalid or expired."
-// @Failure      500  {object}  dto.ErrorResponse      "Internal Server Error - e.g., bot with this username already exists."
+// @Failure      500  {object}  dto.ErrorResponse      "Internal Server Error - Failed to verify channel ownership or database error."
 // @Router       /add-bot [post]
 func (h *TributeHandler) AddBot(c *gin.Context) {
 	userID, exists := c.Get("userID")
@@ -173,6 +173,13 @@ func (h *TributeHandler) AddBot(c *gin.Context) {
 
 	channel, err := h.service.AddBot(id, req.BotUsername)
 	if err != nil {
+		// Check if it's a business logic error (user not owner, channel already exists)
+		if err.Error() == "you must be the owner or administrator of this channel to add it" ||
+			err.Error() == "this channel is already added to your account" {
+			c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: err.Error()})
+			return
+		}
+		// For other errors (network, database, etc.) return 500
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: err.Error()})
 		return
 	}

@@ -167,3 +167,62 @@ func (s *BotService) SendMessage(userID int64, text string) error {
 	}
 	return nil
 }
+
+// ChatMember represents a member in a chat
+type ChatMember struct {
+	Status string `json:"status"`
+	User   struct {
+		ID       int64  `json:"id"`
+		Username string `json:"username"`
+	} `json:"user"`
+}
+
+// TelegramResponse represents a generic Telegram API response
+type TelegramResponse struct {
+	OK     bool        `json:"ok"`
+	Result interface{} `json:"result"`
+}
+
+// CheckChannelMembership checks if a user is a member of a channel and their role
+func (s *BotService) CheckChannelMembership(channelUsername string, userID int64) (*ChatMember, error) {
+	// Remove @ if present
+	if len(channelUsername) > 0 && channelUsername[0] == '@' {
+		channelUsername = channelUsername[1:]
+	}
+
+	url := fmt.Sprintf("https://api.telegram.org/bot%s/getChatMember", s.token)
+	body := map[string]interface{}{
+		"chat_id": "@" + channelUsername,
+		"user_id": userID,
+	}
+	bodyBytes, _ := json.Marshal(body)
+
+	resp, err := s.client.Post(url, "application/json", bytes.NewBuffer(bodyBytes))
+	if err != nil {
+		return nil, fmt.Errorf("failed to check channel membership: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("telegram api error on getChatMember (%d): %s", resp.StatusCode, string(respBody))
+	}
+
+	var response TelegramResponse
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	if !response.OK {
+		return nil, fmt.Errorf("telegram api returned error: %v", response)
+	}
+
+	// Parse the result as ChatMember
+	resultBytes, _ := json.Marshal(response.Result)
+	var chatMember ChatMember
+	if err := json.Unmarshal(resultBytes, &chatMember); err != nil {
+		return nil, fmt.Errorf("failed to parse chat member: %w", err)
+	}
+
+	return &chatMember, nil
+}
