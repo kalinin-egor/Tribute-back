@@ -26,14 +26,13 @@ func (h *TributeHandler) RegisterRoutes(api *gin.RouterGroup) {
 }
 
 // @Summary      Get Dashboard Data
-// @Description  Retrieves all data for the main dashboard screen. The user is identified via the `initData` in the Authorization header. If the user does not exist in the database, a 404 error is returned, prompting the user to complete onboarding via the `/onboard` endpoint.
+// @Description  Retrieves all data for the main dashboard screen. The user is identified via the `initData` in the Authorization header. If the user does not exist in the database, empty data is returned, which is a normal flow indicating the user needs to complete onboarding via the `/onboard` endpoint.
 // @Tags         Tribute
 // @Produce      json
 // @Security     TgAuth
-// @Success      200  {object}  dto.DashboardResponse  "Successfully retrieved dashboard data."
+// @Success      200  {object}  dto.DashboardResponse  "Successfully retrieved dashboard data (empty if user not onboarded)."
 // @Failure      401  {object}  dto.ErrorResponse      "Unauthorized - The Authorization header is missing or invalid."
 // @Failure      403  {object}  dto.ErrorResponse      "Forbidden - The provided initData is invalid or expired."
-// @Failure      404  {object}  dto.ErrorResponse      "Not Found - The user has not been onboarded yet."
 // @Failure      500  {object}  dto.ErrorResponse      "Internal Server Error - An unexpected error occurred."
 // @Router       /dashboard [get]
 func (h *TributeHandler) Dashboard(c *gin.Context) {
@@ -50,7 +49,17 @@ func (h *TributeHandler) Dashboard(c *gin.Context) {
 	data, err := h.service.GetDashboardData(id)
 	if err != nil {
 		if err.Error() == "user not found" {
-			c.JSON(http.StatusNotFound, dto.ErrorResponse{Error: "User not found. Please complete onboarding."})
+			// Return empty dashboard data instead of 404 error
+			// This is a normal flow when user hasn't been onboarded yet
+			response := &dto.DashboardResponse{
+				Earn:              0,
+				IsVerified:        false,
+				IsSubPublished:    false,
+				ChannelsAndGroups: []dto.ChannelDTO{},
+				Subscriptions:     []dto.SubDTO{},
+				PaymentsHistory:   []dto.PaymentDTO{},
+			}
+			c.JSON(http.StatusOK, response)
 			return
 		}
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: err.Error()})
