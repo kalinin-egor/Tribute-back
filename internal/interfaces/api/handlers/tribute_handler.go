@@ -171,7 +171,7 @@ func (h *TributeHandler) AddBot(c *gin.Context) {
 		return
 	}
 
-	channel, err := h.service.AddBot(id, req.BotUsername)
+	channel, err := h.service.AddBot(id, req.ChannelUsername)
 	if err != nil {
 		// Check if it's a business logic error (user not owner, channel already exists)
 		if err.Error() == "you must be the owner or administrator of this channel to add it" ||
