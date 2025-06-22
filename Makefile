@@ -66,6 +66,8 @@ dev-docker: docker-run
 dev-setup: deps docker-up
 	@echo "Waiting for services to be ready..."
 	@sleep 10
+	@echo "Running migrations..."
+	@docker-compose exec -T migrate migrate -path /migrations -database "postgres://postgres:password@postgres:5432/tribute_db?sslmode=disable" up
 	@echo "Development environment setup complete!"
 
 # Development setup without Docker
@@ -86,3 +88,11 @@ dev-full: docker-up
 	@sleep 5
 	@echo "Starting application..."
 	@go run main.go
+
+# Run database migrations
+migrate-up:
+	docker-compose exec -T migrate migrate -path /migrations -database "postgres://postgres:password@postgres:5432/tribute_db?sslmode=disable" up
+
+# Check migration status
+migrate-status:
+	docker-compose exec -T migrate migrate -path /migrations -database "postgres://postgres:password@postgres:5432/tribute_db?sslmode=disable" version
