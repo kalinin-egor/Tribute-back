@@ -59,6 +59,7 @@ func (h *TributeHandler) Dashboard(c *gin.Context) {
 		Earn:           data.User.Earned,
 		IsVerified:     data.User.IsVerified,
 		IsSubPublished: data.User.IsSubPublished,
+		IsOnboarded:    data.User.IsOnboarded,
 		ChannelsAndGroups: func() []dto.ChannelDTO {
 			dtos := make([]dto.ChannelDTO, len(data.Channels))
 			for i, ch := range data.Channels {
@@ -336,4 +337,34 @@ func (h *TributeHandler) CreateSubscribe(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"message": "Successfully subscribed"})
-} 
+}
+
+// @Summary      Mark Onboarding as Complete
+// @Description  Marks the authenticated user's onboarding process as complete.
+// @Tags         Tribute
+// @Accept       json
+// @Produce      json
+// @Security     ApiKeyAuth
+// @Success      200  {object}  map[string]string
+// @Failure      401  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /onboarding/complete [post]
+func (h *TributeHandler) CompleteOnboarding(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+	id, ok := userID.(int64)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID format in token"})
+		return
+	}
+
+	if err := h.service.CompleteOnboarding(id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Onboarding completed successfully"})
+}

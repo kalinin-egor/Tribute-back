@@ -11,4 +11,5 @@ type User struct {
 	IsVerified     bool
 	Subscriptions  []uuid.UUID // Assuming this holds IDs of subscriptions
 	IsSubPublished bool
+	IsOnboarded    bool
 }

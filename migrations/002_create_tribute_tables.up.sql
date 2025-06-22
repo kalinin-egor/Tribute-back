@@ -4,7 +4,8 @@ CREATE TABLE IF NOT EXISTS users (
     user_id BIGINT PRIMARY KEY,
     earned NUMERIC(10, 2) DEFAULT 0.00,
     is_verified BOOLEAN DEFAULT FALSE,
-    is_sub_published BOOLEAN DEFAULT FALSE
+    is_sub_published BOOLEAN DEFAULT FALSE,
+    is_onboarded BOOLEAN DEFAULT FALSE
 );
 
 CREATE TABLE IF NOT EXISTS channels (

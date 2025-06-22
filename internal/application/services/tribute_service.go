@@ -52,8 +52,20 @@ func (s *TributeService) GetDashboardData(userID int64) (*DashboardData, error) 
 	if err != nil {
 		return nil, err
 	}
+
+	// If user does not exist, create a new one (lazy registration)
 	if user == nil {
-		return nil, errors.New("user not found")
+		newUser := &entities.User{
+			ID:             userID,
+			Earned:         0,
+			IsVerified:     false,
+			IsSubPublished: false,
+			IsOnboarded:    false,
+		}
+		if err := s.users.Create(newUser); err != nil {
+			return nil, fmt.Errorf("failed to create new user: %w", err)
+		}
+		user = newUser // Use the newly created user for the rest of the logic
 	}
 
 	channels, err := s.channels.FindByUserID(userID)
@@ -264,6 +276,19 @@ func (s *TributeService) CreateSubscription(subscriberID int64, creatorID int64,
 	}
 
 	return nil
+}
+
+func (s *TributeService) CompleteOnboarding(userID int64) error {
+	user, err := s.users.FindByID(userID)
+	if err != nil {
+		return err
+	}
+	if user == nil {
+		return errors.New("user not found")
+	}
+
+	user.IsOnboarded = true
+	return s.users.Update(user)
 }
 
 // TODO: Implement methods for each endpoint

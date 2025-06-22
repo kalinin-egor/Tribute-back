@@ -18,21 +18,26 @@ func NewPgUserRepository(db *sql.DB) repositories.UserRepository {
 
 func (r *PgUserRepository) FindByID(id int64) (*entities.User, error) {
 	user := &entities.User{}
-	// Note: The 'subscriptions' field is not in the 'users' table and will be populated in the service layer.
-	query := `SELECT user_id, earned, is_verified, is_sub_published FROM users WHERE user_id = $1`
-	err := r.db.QueryRow(query, id).Scan(&user.ID, &user.Earned, &user.IsVerified, &user.IsSubPublished)
+	query := `SELECT user_id, earned, is_verified, is_sub_published, is_onboarded FROM users WHERE user_id = $1`
+	err := r.db.QueryRow(query, id).Scan(&user.ID, &user.Earned, &user.IsVerified, &user.IsSubPublished, &user.IsOnboarded)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, nil // Or a specific "not found" error
+			return nil, nil // Return nil, nil when no user is found
 		}
 		return nil, err
 	}
 	return user, nil
 }
 
+func (r *PgUserRepository) Create(user *entities.User) error {
+	query := `INSERT INTO users (user_id, earned, is_verified, is_sub_published, is_onboarded) VALUES ($1, $2, $3, $4, $5)`
+	_, err := r.db.Exec(query, user.ID, user.Earned, user.IsVerified, user.IsSubPublished, user.IsOnboarded)
+	return err
+}
+
 func (r *PgUserRepository) Update(user *entities.User) error {
-	query := `UPDATE users SET earned = $2, is_verified = $3, is_sub_published = $4 WHERE user_id = $1`
-	_, err := r.db.Exec(query, user.ID, user.Earned, user.IsVerified, user.IsSubPublished)
+	query := `UPDATE users SET earned = $2, is_verified = $3, is_sub_published = $4, is_onboarded = $5 WHERE user_id = $1`
+	_, err := r.db.Exec(query, user.ID, user.Earned, user.IsVerified, user.IsSubPublished, user.IsOnboarded)
 	return err
 }
 
