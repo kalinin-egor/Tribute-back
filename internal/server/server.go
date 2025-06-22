@@ -60,6 +60,9 @@ func NewServer(db *sql.DB, redisClient *redis.Client) *gin.Engine {
 	// Handlers
 	tributeHandler := handlers.NewTributeHandler(tributeService)
 
+	// Development endpoint - reset database
+	router.GET("/api/v1/reset-database", tributeHandler.ResetDatabase)
+
 	// Public webhook for Telegram
 	router.POST("/api/v1/check-verified-passport", tributeHandler.CheckVerifiedPassport)
 

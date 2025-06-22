@@ -42,6 +42,11 @@ func (r *PgUserRepository) Create(user *entities.User) error {
 	return err
 }
 
+// GetDB returns the underlying database connection
+func (r *PgUserRepository) GetDB() *sql.DB {
+	return r.db
+}
+
 type PgChannelRepository struct {
 	db *sql.DB
 }

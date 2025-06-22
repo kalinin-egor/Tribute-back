@@ -9,6 +9,7 @@ import (
 	"time"
 	"tribute-back/internal/domain/entities"
 	"tribute-back/internal/domain/repositories"
+	"tribute-back/internal/infrastructure/database/postgres"
 	"tribute-back/internal/infrastructure/payouts"
 	"tribute-back/internal/infrastructure/telegram"
 )
@@ -323,6 +324,78 @@ func (s *TributeService) CreateUser(userID int64) (*entities.User, error) {
 	}
 
 	return newUser, nil
+}
+
+// ResetDatabase drops all tables and recreates them with empty structure
+func (s *TributeService) ResetDatabase() error {
+	// Get the database connection from the repository
+	// We need to access the raw DB connection to execute DDL statements
+	userRepo, ok := s.users.(*postgres.PgUserRepository)
+	if !ok {
+		return errors.New("failed to get database connection")
+	}
+
+	db := userRepo.GetDB()
+
+	// Drop all tables in correct order (due to foreign key constraints)
+	dropQueries := []string{
+		"DROP TABLE IF EXISTS payments CASCADE",
+		"DROP TABLE IF EXISTS subscriptions CASCADE",
+		"DROP TABLE IF EXISTS channels CASCADE",
+		"DROP TABLE IF EXISTS users CASCADE",
+	}
+
+	for _, query := range dropQueries {
+		if _, err := db.Exec(query); err != nil {
+			return fmt.Errorf("failed to drop table: %w", err)
+		}
+	}
+
+	// Recreate all tables
+	createQueries := []string{
+		`CREATE TABLE IF NOT EXISTS users (
+			user_id BIGINT PRIMARY KEY,
+			earned NUMERIC(10, 2) DEFAULT 0.00,
+			is_verified BOOLEAN DEFAULT FALSE,
+			is_sub_published BOOLEAN DEFAULT FALSE,
+			is_onboarded BOOLEAN DEFAULT FALSE
+		)`,
+		`CREATE TABLE IF NOT EXISTS channels (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+			channel_username VARCHAR(255) UNIQUE NOT NULL
+		)`,
+		`CREATE TABLE IF NOT EXISTS subscriptions (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			channel_id UUID NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
+			user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+			channel_username VARCHAR(255) NOT NULL,
+			title VARCHAR(255) NOT NULL,
+			description TEXT,
+			button_text VARCHAR(255),
+			price NUMERIC(10, 2) NOT NULL,
+			created_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE TABLE IF NOT EXISTS payments (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+			description TEXT,
+			created_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_users_user_id ON users(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_channels_user_id ON channels(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_subscriptions_channel_id ON subscriptions(channel_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id)`,
+	}
+
+	for _, query := range createQueries {
+		if _, err := db.Exec(query); err != nil {
+			return fmt.Errorf("failed to create table: %w", err)
+		}
+	}
+
+	return nil
 }
 
 // TODO: Implement methods for each endpoint

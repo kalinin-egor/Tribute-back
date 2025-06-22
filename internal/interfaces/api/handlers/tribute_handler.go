@@ -462,3 +462,19 @@ func (h *TributeHandler) CreateUser(c *gin.Context) {
 		c.JSON(http.StatusOK, response)
 	}
 }
+
+// @Summary      Reset Database
+// @Description  Drops all tables and recreates them with empty structure. WARNING: This will delete all data!
+// @Tags         Development
+// @Produce      json
+// @Success      200  {object}  dto.MessageResponse  "Success - Database was reset successfully."
+// @Failure      500  {object}  dto.ErrorResponse    "Internal Server Error - An unexpected error occurred."
+// @Router       /reset-database [get]
+func (h *TributeHandler) ResetDatabase(c *gin.Context) {
+	if err := h.service.ResetDatabase(); err != nil {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.MessageResponse{Message: "Database reset successfully"})
+}
