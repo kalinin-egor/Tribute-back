@@ -24,6 +24,16 @@ func (h *TributeHandler) RegisterRoutes(api *gin.RouterGroup) {
 	// Routes are now registered in server.go to separate public and private endpoints.
 }
 
+// @Summary      Get Dashboard Data
+// @Description  Retrieves all data for the main dashboard screen based on the authenticated user.
+// @Tags         Tribute
+// @Accept       json
+// @Produce      json
+// @Security     ApiKeyAuth
+// @Success      200  {object}  dto.DashboardResponse
+// @Failure      401  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /dashboard [post]
 func (h *TributeHandler) Dashboard(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
@@ -75,6 +85,18 @@ func (h *TributeHandler) Dashboard(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
+// @Summary      Add a new bot/channel
+// @Description  Adds a new Telegram channel for the authenticated user.
+// @Tags         Tribute
+// @Accept       json
+// @Produce      json
+// @Security     ApiKeyAuth
+// @Param        request body dto.AddBotRequest true "Bot Username"
+// @Success      201  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]string
+// @Failure      401  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /add-bot [post]
 func (h *TributeHandler) AddBot(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
@@ -110,6 +132,18 @@ func (h *TributeHandler) AddBot(c *gin.Context) {
 	})
 }
 
+// @Summary      Upload documents for verification
+// @Description  Uploads user photo and passport (as base64 strings) to start the verification process.
+// @Tags         Tribute
+// @Accept       json
+// @Produce      json
+// @Security     ApiKeyAuth
+// @Param        request body dto.UploadVerifiedPassportRequest true "User Documents"
+// @Success      200  {object}  map[string]string
+// @Failure      400  {object}  map[string]string
+// @Failure      401  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /upload-verified-passport [post]
 func (h *TributeHandler) UploadVerifiedPassport(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
@@ -142,6 +176,15 @@ func (h *TributeHandler) UploadVerifiedPassport(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Verification request sent successfully"})
 }
 
+// @Summary      Telegram Webhook for Verification
+// @Description  This is a public endpoint for receiving callback queries from Telegram for verification approval or rejection.
+// @Tags         Webhooks
+// @Accept       json
+// @Produce      json
+// @Param        update body dto.TelegramUpdate true "Telegram Callback Query"
+// @Success      200  {object}  map[string]string
+// @Failure      400  {object}  map[string]string
+// @Router       /check-verified-passport [post]
 func (h *TributeHandler) CheckVerifiedPassport(c *gin.Context) {
 	var update dto.TelegramUpdate
 	if err := c.ShouldBindJSON(&update); err != nil {
@@ -170,6 +213,18 @@ func (h *TributeHandler) CheckVerifiedPassport(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
+// @Summary      Set up payout method
+// @Description  Sets up the payout method for the authenticated user by providing card details. The details are not stored.
+// @Tags         Tribute
+// @Accept       json
+// @Produce      json
+// @Security     ApiKeyAuth
+// @Param        request body dto.SetUpPayoutsRequest true "Card Details"
+// @Success      200  {object}  map[string]string
+// @Failure      400  {object}  map[string]string
+// @Failure      401  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /set-up-payouts [post]
 func (h *TributeHandler) SetUpPayouts(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
@@ -202,6 +257,18 @@ func (h *TributeHandler) SetUpPayouts(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Payout method set up successfully"})
 }
 
+// @Summary      Publish or update a subscription tier
+// @Description  Allows an author to publish or update their subscription details.
+// @Tags         Tribute
+// @Accept       json
+// @Produce      json
+// @Security     ApiKeyAuth
+// @Param        request body dto.PublishSubscriptionRequest true "Subscription Details"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]string
+// @Failure      401  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /publish-subscription [post]
 func (h *TributeHandler) PublishSubscription(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
@@ -232,6 +299,18 @@ func (h *TributeHandler) PublishSubscription(c *gin.Context) {
 	})
 }
 
+// @Summary      Create a subscription to an author
+// @Description  Allows an authenticated user (subscriber) to subscribe to another user (creator).
+// @Tags         Tribute
+// @Accept       json
+// @Produce      json
+// @Security     ApiKeyAuth
+// @Param        request body dto.CreateSubscribeRequest true "Subscription Request"
+// @Success      201  {object}  map[string]string
+// @Failure      400  {object}  map[string]string
+// @Failure      401  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /create-subscribe [post]
 func (h *TributeHandler) CreateSubscribe(c *gin.Context) {
 	subscriberID, exists := c.Get("userID")
 	if !exists {

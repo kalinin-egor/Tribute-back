@@ -54,7 +54,7 @@ func NewServer(db *sql.DB, redisClient *redis.Client) *gin.Engine {
 	// Public webhook for Telegram
 	router.POST("/api/v1/check-verified-passport", tributeHandler.CheckVerifiedPassport)
 
-	// Protected routes
+	// Register protected routes
 	api := router.Group("/api/v1")
 	api.Use(middleware.AuthMiddleware(jwtService))
 	{
@@ -69,6 +69,7 @@ func NewServer(db *sql.DB, redisClient *redis.Client) *gin.Engine {
 
 	// Swagger
 	if config.GetEnv("GIN_MODE", "debug") != "release" {
+		// The url for swagger docs is /swagger/index.html
 		router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	}
 
