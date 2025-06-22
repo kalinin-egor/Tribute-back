@@ -1,4 +1,4 @@
-.PHONY: build run test clean deps migrate-up migrate-down docker-up docker-down docker-logs docker-restart swagger docker-build docker-run
+.PHONY: build run test clean deps swagger docker-up docker-down docker-logs docker-restart docker-build docker-run
 
 # Build the application
 build:
@@ -62,50 +62,14 @@ dev-docker: docker-run
 	@echo "PostgreSQL: localhost:5432"
 	@echo "Redis: localhost:6379"
 
-# Run database migrations (local)
-migrate-up:
-	migrate -path migrations -database "postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=$(DB_SSL_MODE)" up
-
-# Run database migrations down (local)
-migrate-down:
-	migrate -path migrations -database "postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=$(DB_SSL_MODE)" down
-
-# Create new migration
-migrate-create:
-	@read -p "Enter migration name: " name; \
-	migrate create -ext sql -dir migrations -seq $$name
-
-# Install migrate tool
-install-migrate:
-	go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
-
-# Run database migrations (Docker)
-migrate-up-docker:
-	docker-compose exec -T migrate migrate -path /migrations -database "postgres://postgres:password@postgres:5432/tribute_db?sslmode=disable" up
-
-# Run database migrations down (Docker)
-migrate-down-docker:
-	docker-compose exec -T migrate migrate -path /migrations -database "postgres://postgres:password@postgres:5432/tribute_db?sslmode=disable" down
-
-# Check migration status (Docker)
-migrate-status-docker:
-	docker-compose exec -T migrate migrate -path /migrations -database "postgres://postgres:password@postgres:5432/tribute_db?sslmode=disable" version
-
-# Force migration version (Docker)
-migrate-force-docker:
-	@read -p "Enter version to force: " version; \
-	docker-compose exec -T migrate migrate -path /migrations -database "postgres://postgres:password@postgres:5432/tribute_db?sslmode=disable" force $$version
-
 # Development setup with Docker
 dev-setup: deps docker-up
 	@echo "Waiting for services to be ready..."
 	@sleep 10
-	@echo "Running migrations..."
-	@docker-compose exec -T migrate migrate -path /migrations -database "postgres://postgres:password@postgres:5432/tribute_db?sslmode=disable" up
 	@echo "Development environment setup complete!"
 
 # Development setup without Docker
-dev-setup-local: deps install-migrate
+dev-setup-local: deps
 	@echo "Development environment setup complete!"
 
 # Run with hot reload (requires air)
@@ -120,11 +84,5 @@ install-air:
 dev-full: docker-up
 	@echo "Starting development environment..."
 	@sleep 5
-	@echo "Running migrations..."
-	@docker-compose exec migrate migrate -path /migrations -database "postgres://postgres:password@postgres:5432/tribute_db?sslmode=disable" up
 	@echo "Starting application..."
 	@go run main.go
-
-# Fix migration issues automatically
-migrate-fix:
-	./fix-migrations.sh 

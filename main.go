@@ -54,6 +54,11 @@ func main() {
 	}
 	defer db.Close()
 
+	// Reset database on startup (drops all tables and recreates them)
+	if err := database.ResetDatabase(); err != nil {
+		log.Fatal("Error resetting database:", err)
+	}
+
 	// Initialize Redis
 	redisClient, err := redis.Init()
 	if err != nil {
