@@ -1,8 +1,6 @@
 package dto
 
 import (
-	"time"
-
 	"github.com/google/uuid"
 )
 
@@ -27,30 +25,6 @@ type UpdateUserRequest struct {
 type LoginRequest struct {
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required"`
-}
-
-// UserResponse represents the user data in HTTP responses
-type UserResponse struct {
-	ID        uuid.UUID `json:"id"`
-	Email     string    `json:"email"`
-	Username  string    `json:"username"`
-	FirstName string    `json:"first_name"`
-	LastName  string    `json:"last_name"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-}
-
-// LoginResponse represents the response body for user login
-type LoginResponse struct {
-	User  UserResponse `json:"user"`
-	Token string       `json:"token"`
-}
-
-// ToUserResponse converts domain entity to DTO
-func ToUserResponse(user interface{}) UserResponse {
-	// This would be implemented based on your domain entity
-	// For now, it's a placeholder
-	return UserResponse{}
 }
 
 // Dashboard
@@ -129,4 +103,50 @@ type SubDTO struct {
 type PaymentDTO struct {
 	Description string `json:"description"`
 	CreatedDate string `json:"created-date"`
+}
+
+// --- Generic Response DTOs ---
+
+// MessageResponse is a generic response for a successful operation.
+type MessageResponse struct {
+	Message string `json:"message"`
+}
+
+// ErrorResponse is a generic response for an error.
+type ErrorResponse struct {
+	Error string `json:"error"`
+}
+
+// StatusResponse is a generic response for a status message.
+type StatusResponse struct {
+	Status string `json:"status"`
+}
+
+// --- Specific Response DTOs ---
+
+// UserResponse represents a user's data in a response.
+type UserResponse struct {
+	ID             int64   `json:"id"`
+	Earned         float64 `json:"earned"`
+	IsVerified     bool    `json:"is_verified"`
+	IsSubPublished bool    `json:"is_sub_published"`
+	IsOnboarded    bool    `json:"is_onboarded"`
+}
+
+// OnboardResponse is the response for a successful onboarding.
+type OnboardResponse struct {
+	Message string       `json:"message"`
+	User    UserResponse `json:"user"`
+}
+
+// AddBotResponse is the response for successfully adding a bot.
+type AddBotResponse struct {
+	Message string     `json:"message"`
+	Channel ChannelDTO `json:"channel"`
+}
+
+// PublishSubscriptionResponse is the response for a successful subscription publication.
+type PublishSubscriptionResponse struct {
+	Message      string `json:"message"`
+	Subscription SubDTO `json:"subscription"`
 }

@@ -65,13 +65,13 @@ func NewServer(db *sql.DB, redisClient *redis.Client) *gin.Engine {
 	api.Use(middleware.AuthMiddleware(jwtService))
 	{
 		// All other routes are registered here and are protected
-		api.POST("/dashboard", tributeHandler.Dashboard)
+		api.GET("/dashboard", tributeHandler.Dashboard)
 		api.POST("/add-bot", tributeHandler.AddBot)
 		api.POST("/upload-verified-passport", tributeHandler.UploadVerifiedPassport)
 		api.POST("/set-up-payouts", tributeHandler.SetUpPayouts)
-		api.POST("/publish-subscription", tributeHandler.PublishSubscription)
+		api.PUT("/publish-subscription", tributeHandler.PublishSubscription)
 		api.POST("/create-subscribe", tributeHandler.CreateSubscribe)
-		api.POST("/onboard", tributeHandler.Onboard)
+		api.PUT("/onboard", tributeHandler.Onboard)
 	}
 
 	// Swagger

@@ -27,37 +27,33 @@ func (h *TributeHandler) RegisterRoutes(api *gin.RouterGroup) {
 // @Summary      Get Dashboard Data
 // @Description  Retrieves all data for the main dashboard screen based on the authenticated user.
 // @Tags         Tribute
-// @Accept       json
 // @Produce      json
 // @Security     ApiKeyAuth
 // @Success      200  {object}  dto.DashboardResponse
-// @Failure      401  {object}  map[string]string
-// @Failure      500  {object}  map[string]string
-// @Router       /dashboard [post]
+// @Failure      401  {object}  dto.ErrorResponse
+// @Failure      404  {object}  dto.ErrorResponse
+// @Failure      500  {object}  dto.ErrorResponse
+// @Router       /dashboard [get]
 func (h *TributeHandler) Dashboard(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		c.JSON(http.StatusUnauthorized, dto.ErrorResponse{Error: "User not authenticated"})
 		return
 	}
-
 	id, ok := userID.(int64)
 	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID format in token"})
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Invalid user ID format in token"})
 		return
 	}
-
 	data, err := h.service.GetDashboardData(id)
 	if err != nil {
 		if err.Error() == "user not found" {
-			c.JSON(http.StatusNotFound, gin.H{"error": "User not found. Please complete onboarding."})
+			c.JSON(http.StatusNotFound, dto.ErrorResponse{Error: "User not found. Please complete onboarding."})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: err.Error()})
 		return
 	}
-
-	// Map domain entities to DTOs
 	response := &dto.DashboardResponse{
 		Earn:           data.User.Earned,
 		IsVerified:     data.User.IsVerified,
@@ -84,7 +80,6 @@ func (h *TributeHandler) Dashboard(c *gin.Context) {
 			return dtos
 		}(),
 	}
-
 	c.JSON(http.StatusOK, response)
 }
 
@@ -95,42 +90,41 @@ func (h *TributeHandler) Dashboard(c *gin.Context) {
 // @Produce      json
 // @Security     ApiKeyAuth
 // @Param        request body dto.AddBotRequest true "Bot Username"
-// @Success      201  {object}  map[string]interface{}
-// @Failure      400  {object}  map[string]string
-// @Failure      401  {object}  map[string]string
-// @Failure      500  {object}  map[string]string
+// @Success      201  {object}  dto.AddBotResponse
+// @Failure      400  {object}  dto.ErrorResponse
+// @Failure      401  {object}  dto.ErrorResponse
+// @Failure      500  {object}  dto.ErrorResponse
 // @Router       /add-bot [post]
 func (h *TributeHandler) AddBot(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		c.JSON(http.StatusUnauthorized, dto.ErrorResponse{Error: "User not authenticated"})
 		return
 	}
 
 	id, ok := userID.(int64)
 	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID format in token"})
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Invalid user ID format in token"})
 		return
 	}
 
 	var req dto.AddBotRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	channel, err := h.service.AddBot(id, req.BotUsername)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"message": "Bot added successfully",
-		"channel": gin.H{
-			"id":               channel.ID,
-			"user_id":          channel.UserID,
-			"channel_username": channel.ChannelUsername,
+	c.JSON(http.StatusCreated, dto.AddBotResponse{
+		Message: "Bot added successfully",
+		Channel: dto.ChannelDTO{
+			ID:              channel.ID,
+			ChannelUsername: channel.ChannelUsername,
 		},
 	})
 }
@@ -142,41 +136,41 @@ func (h *TributeHandler) AddBot(c *gin.Context) {
 // @Produce      json
 // @Security     ApiKeyAuth
 // @Param        request body dto.UploadVerifiedPassportRequest true "User Documents"
-// @Success      200  {object}  map[string]string
-// @Failure      400  {object}  map[string]string
-// @Failure      401  {object}  map[string]string
-// @Failure      500  {object}  map[string]string
+// @Success      200  {object}  dto.MessageResponse
+// @Failure      400  {object}  dto.ErrorResponse
+// @Failure      401  {object}  dto.ErrorResponse
+// @Failure      500  {object}  dto.ErrorResponse
 // @Router       /upload-verified-passport [post]
 func (h *TributeHandler) UploadVerifiedPassport(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		c.JSON(http.StatusUnauthorized, dto.ErrorResponse{Error: "User not authenticated"})
 		return
 	}
 	id, ok := userID.(int64)
 	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID format in token"})
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Invalid user ID format in token"})
 		return
 	}
 
 	var req dto.UploadVerifiedPassportRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body: " + err.Error()})
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid request body: " + err.Error()})
 		return
 	}
 
 	if req.UserPhoto == "" || req.UserPassport == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "user-photo and user-passport are required"})
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "user-photo and user-passport are required"})
 		return
 	}
 
 	err := h.service.RequestVerification(id, req.UserPhoto, req.UserPassport)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send verification request: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to send verification request: " + err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Verification request sent successfully"})
+	c.JSON(http.StatusOK, dto.MessageResponse{Message: "Verification request sent successfully"})
 }
 
 // @Summary      Telegram Webhook for Verification
@@ -185,18 +179,19 @@ func (h *TributeHandler) UploadVerifiedPassport(c *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Param        update body dto.TelegramUpdate true "Telegram Callback Query"
-// @Success      200  {object}  map[string]string
-// @Failure      400  {object}  map[string]string
+// @Success      200  {object}  dto.StatusResponse
+// @Failure      400  {object}  dto.ErrorResponse
+// @Failure      500  {object}  dto.ErrorResponse
 // @Router       /check-verified-passport [post]
 func (h *TributeHandler) CheckVerifiedPassport(c *gin.Context) {
 	var update dto.TelegramUpdate
 	if err := c.ShouldBindJSON(&update); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot parse Telegram update"})
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Cannot parse Telegram update"})
 		return
 	}
 
 	if update.CallbackQuery == nil || update.CallbackQuery.Message == nil {
-		c.JSON(http.StatusOK, gin.H{"message": "Not a valid callback query, ignoring"})
+		c.JSON(http.StatusOK, dto.StatusResponse{Status: "Not a valid callback query, ignoring"})
 		return
 	}
 
@@ -209,11 +204,11 @@ func (h *TributeHandler) CheckVerifiedPassport(c *gin.Context) {
 	if err != nil {
 		// In a real app, you might want to answer the callback query with an error message to the admin.
 		// For now, just log it and return an error.
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process callback: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to process callback: " + err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	c.JSON(http.StatusOK, dto.StatusResponse{Status: "ok"})
 }
 
 // @Summary      Set up payout method
@@ -223,26 +218,26 @@ func (h *TributeHandler) CheckVerifiedPassport(c *gin.Context) {
 // @Produce      json
 // @Security     ApiKeyAuth
 // @Param        request body dto.SetUpPayoutsRequest true "Card Details"
-// @Success      200  {object}  map[string]string
-// @Failure      400  {object}  map[string]string
-// @Failure      401  {object}  map[string]string
-// @Failure      500  {object}  map[string]string
+// @Success      200  {object}  dto.MessageResponse
+// @Failure      400  {object}  dto.ErrorResponse
+// @Failure      401  {object}  dto.ErrorResponse
+// @Failure      500  {object}  dto.ErrorResponse
 // @Router       /set-up-payouts [post]
 func (h *TributeHandler) SetUpPayouts(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		c.JSON(http.StatusUnauthorized, dto.ErrorResponse{Error: "User not authenticated"})
 		return
 	}
 	id, ok := userID.(int64)
 	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID format in token"})
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Invalid user ID format in token"})
 		return
 	}
 
 	var req dto.SetUpPayoutsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body: " + err.Error()})
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid request body: " + err.Error()})
 		return
 	}
 
@@ -253,11 +248,11 @@ func (h *TributeHandler) SetUpPayouts(c *gin.Context) {
 	}
 
 	if err := h.service.SetUpPayouts(id, cardDetails); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Payout method set up successfully"})
+	c.JSON(http.StatusOK, dto.MessageResponse{Message: "Payout method set up successfully"})
 }
 
 // @Summary      Publish or update a subscription tier
@@ -267,38 +262,43 @@ func (h *TributeHandler) SetUpPayouts(c *gin.Context) {
 // @Produce      json
 // @Security     ApiKeyAuth
 // @Param        request body dto.PublishSubscriptionRequest true "Subscription Details"
-// @Success      200  {object}  map[string]interface{}
-// @Failure      400  {object}  map[string]string
-// @Failure      401  {object}  map[string]string
-// @Failure      500  {object}  map[string]string
-// @Router       /publish-subscription [post]
+// @Success      200  {object}  dto.PublishSubscriptionResponse
+// @Failure      400  {object}  dto.ErrorResponse
+// @Failure      401  {object}  dto.ErrorResponse
+// @Failure      500  {object}  dto.ErrorResponse
+// @Router       /publish-subscription [put]
 func (h *TributeHandler) PublishSubscription(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		c.JSON(http.StatusUnauthorized, dto.ErrorResponse{Error: "User not authenticated"})
 		return
 	}
 	id, ok := userID.(int64)
 	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID format in token"})
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Invalid user ID format in token"})
 		return
 	}
 
 	var req dto.PublishSubscriptionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body: " + err.Error()})
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid request body: " + err.Error()})
 		return
 	}
 
 	subscription, err := h.service.PublishSubscription(id, req.Title, req.Description, req.ButtonText, req.Price)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message":      "Subscription published successfully",
-		"subscription": subscription,
+	c.JSON(http.StatusOK, dto.PublishSubscriptionResponse{
+		Message: "Subscription published successfully",
+		Subscription: dto.SubDTO{
+			ID:          subscription.ID,
+			Title:       subscription.Title,
+			Description: subscription.Description,
+			Price:       subscription.Price,
+		},
 	})
 }
 
@@ -309,78 +309,76 @@ func (h *TributeHandler) PublishSubscription(c *gin.Context) {
 // @Produce      json
 // @Security     ApiKeyAuth
 // @Param        request body dto.CreateSubscribeRequest true "Subscription Request"
-// @Success      201  {object}  map[string]string
-// @Failure      400  {object}  map[string]string
-// @Failure      401  {object}  map[string]string
-// @Failure      500  {object}  map[string]string
+// @Success      201  {object}  dto.MessageResponse
+// @Failure      400  {object}  dto.ErrorResponse
+// @Failure      401  {object}  dto.ErrorResponse
+// @Failure      500  {object}  dto.ErrorResponse
 // @Router       /create-subscribe [post]
 func (h *TributeHandler) CreateSubscribe(c *gin.Context) {
 	subscriberID, exists := c.Get("userID")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		c.JSON(http.StatusUnauthorized, dto.ErrorResponse{Error: "User not authenticated"})
 		return
 	}
 	id, ok := subscriberID.(int64)
 	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID format in token"})
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Invalid user ID format in token"})
 		return
 	}
 
 	var req dto.CreateSubscribeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body: " + err.Error()})
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid request body: " + err.Error()})
 		return
 	}
 
 	// The user making the request is the subscriber. The user_id in the body is the creator.
 	if err := h.service.CreateSubscription(id, req.UserID, req.Price); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "Successfully subscribed"})
+	c.JSON(http.StatusCreated, dto.MessageResponse{Message: "Successfully subscribed"})
 }
 
 // @Summary      Onboard a new user
-// @Description  Creates a user record if one doesn't exist for the authenticated user ID. Marks the user as onboarded.
+// @Description  Creates or updates a user record. Marks the user as onboarded.
 // @Tags         Tribute
 // @Accept       json
 // @Produce      json
 // @Security     ApiKeyAuth
-// @Success      200  {object}  map[string]interface{} "User already existed"
-// @Success      201  {object}  map[string]interface{} "User created successfully"
-// @Failure      401  {object}  map[string]string
-// @Failure      500  {object}  map[string]string
-// @Router       /onboard [post]
+// @Success      200  {object}  dto.OnboardResponse "User already existed and was updated"
+// @Success      201  {object}  dto.OnboardResponse "User created successfully"
+// @Failure      401  {object}  dto.ErrorResponse
+// @Failure      500  {object}  dto.ErrorResponse
+// @Router       /onboard [put]
 func (h *TributeHandler) Onboard(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		c.JSON(http.StatusUnauthorized, dto.ErrorResponse{Error: "User not authenticated"})
 		return
 	}
 	id, ok := userID.(int64)
 	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID format in token"})
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Invalid user ID format in token"})
 		return
 	}
 
 	user, err := h.service.OnboardUser(id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: err.Error()})
 		return
 	}
 
-	// Check if user was already onboarded to return 200 instead of 201
-	// This is a simple check; a more robust way would be for the service to return a status
-	if c.Writer.Status() != http.StatusCreated {
-		c.JSON(http.StatusOK, gin.H{
-			"message": "User is onboarded",
-			"user":    user,
-		})
-	} else {
-		c.JSON(http.StatusCreated, gin.H{
-			"message": "User created and onboarded successfully",
-			"user":    user,
-		})
-	}
+	// A real implementation would distinguish between create and update to set status code
+	c.JSON(http.StatusOK, dto.OnboardResponse{
+		Message: "User is onboarded",
+		User: dto.UserResponse{
+			ID:             user.ID,
+			Earned:         user.Earned,
+			IsVerified:     user.IsVerified,
+			IsSubPublished: user.IsSubPublished,
+			IsOnboarded:    user.IsOnboarded,
+		},
+	})
 }
