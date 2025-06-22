@@ -19,6 +19,36 @@ func NewTributeHandler(service *services.TributeService) *TributeHandler {
 	return &TributeHandler{service: service}
 }
 
+// buildDashboardResponse creates a dashboard response from dashboard data
+func (h *TributeHandler) buildDashboardResponse(data *services.DashboardData) *dto.DashboardResponse {
+	return &dto.DashboardResponse{
+		Earn:           data.User.Earned,
+		IsVerified:     data.User.IsVerified,
+		IsSubPublished: data.User.IsSubPublished,
+		ChannelsAndGroups: func() []dto.ChannelDTO {
+			dtos := make([]dto.ChannelDTO, len(data.Channels))
+			for i, ch := range data.Channels {
+				dtos[i] = dto.ChannelDTO{ID: ch.ID, ChannelUsername: ch.ChannelUsername}
+			}
+			return dtos
+		}(),
+		Subscriptions: func() []dto.SubDTO {
+			dtos := make([]dto.SubDTO, len(data.Subscriptions))
+			for i, sub := range data.Subscriptions {
+				dtos[i] = dto.SubDTO{ID: sub.ID, Title: sub.Title, Description: sub.Description, Price: sub.Price}
+			}
+			return dtos
+		}(),
+		PaymentsHistory: func() []dto.PaymentDTO {
+			dtos := make([]dto.PaymentDTO, len(data.Payments))
+			for i, p := range data.Payments {
+				dtos[i] = dto.PaymentDTO{Description: p.Description, CreatedDate: p.CreatedDate.Format(time.RFC3339)}
+			}
+			return dtos
+		}(),
+	}
+}
+
 // This function is no longer needed as routes are registered directly in server.go
 // You can remove it or leave it empty.
 func (h *TributeHandler) RegisterRoutes(api *gin.RouterGroup) {
@@ -57,32 +87,7 @@ func (h *TributeHandler) Dashboard(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: err.Error()})
 		return
 	}
-	response := &dto.DashboardResponse{
-		Earn:           data.User.Earned,
-		IsVerified:     data.User.IsVerified,
-		IsSubPublished: data.User.IsSubPublished,
-		ChannelsAndGroups: func() []dto.ChannelDTO {
-			dtos := make([]dto.ChannelDTO, len(data.Channels))
-			for i, ch := range data.Channels {
-				dtos[i] = dto.ChannelDTO{ID: ch.ID, ChannelUsername: ch.ChannelUsername}
-			}
-			return dtos
-		}(),
-		Subscriptions: func() []dto.SubDTO {
-			dtos := make([]dto.SubDTO, len(data.Subscriptions))
-			for i, sub := range data.Subscriptions {
-				dtos[i] = dto.SubDTO{ID: sub.ID, Title: sub.Title, Description: sub.Description, Price: sub.Price}
-			}
-			return dtos
-		}(),
-		PaymentsHistory: func() []dto.PaymentDTO {
-			dtos := make([]dto.PaymentDTO, len(data.Payments))
-			for i, p := range data.Payments {
-				dtos[i] = dto.PaymentDTO{Description: p.Description, CreatedDate: p.CreatedDate.Format(time.RFC3339)}
-			}
-			return dtos
-		}(),
-	}
+	response := h.buildDashboardResponse(data)
 	c.JSON(http.StatusOK, response)
 }
 
@@ -403,12 +408,12 @@ func (h *TributeHandler) CreateSubscribe(c *gin.Context) {
 }
 
 // @Summary      Create User
-// @Description  Creates a new user if one doesn't exist, otherwise returns the existing user. This endpoint is idempotent.
+// @Description  Creates a new user if one doesn't exist, otherwise returns the existing user. This endpoint is idempotent and returns dashboard data.
 // @Tags         Tribute
 // @Produce      json
 // @Security     TgAuth
-// @Success      200  {object}  dto.CreateUserResponse  "Success - User already existed."
-// @Success      201  {object}  dto.CreateUserResponse  "Created - A new user was created."
+// @Success      200  {object}  dto.DashboardResponse  "Success - User already existed."
+// @Success      201  {object}  dto.DashboardResponse  "Created - A new user was created."
 // @Failure      401  {object}  dto.ErrorResponse       "Unauthorized - The Authorization header is missing or invalid."
 // @Failure      403  {object}  dto.ErrorResponse       "Forbidden - The provided initData is invalid or expired."
 // @Failure      500  {object}  dto.ErrorResponse       "Internal Server Error - An unexpected error occurred."
@@ -426,27 +431,24 @@ func (h *TributeHandler) CreateUser(c *gin.Context) {
 		return
 	}
 
-	user, err := h.service.CreateUser(id)
+	_, err := h.service.CreateUser(id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: err.Error()})
 		return
 	}
 
+	// Get dashboard data to return in response
+	data, err := h.service.GetDashboardData(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	response := h.buildDashboardResponse(data)
+
 	// Check if user was created or already existed
 	existingUser, _ := h.service.GetDashboardData(id)
 	created := existingUser == nil || existingUser.User == nil
-
-	response := dto.CreateUserResponse{
-		Message: "User processed successfully",
-		User: dto.UserResponse{
-			ID:             user.ID,
-			Earned:         user.Earned,
-			IsVerified:     user.IsVerified,
-			IsSubPublished: user.IsSubPublished,
-			IsOnboarded:    user.IsOnboarded,
-		},
-		Created: created,
-	}
 
 	if created {
 		c.JSON(http.StatusCreated, response)
