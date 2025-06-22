@@ -124,10 +124,13 @@ func (s *TributeService) AddBot(userID int64, botUsername string) (*entities.Cha
 		ChannelUsername: botUsername,
 	}
 
+	fmt.Printf("Creating channel for user %d with username %s\n", userID, botUsername)
 	err = s.channels.Create(channel)
 	if err != nil {
+		fmt.Printf("Failed to create channel: %v\n", err)
 		return nil, err
 	}
+	fmt.Printf("Successfully created channel with ID: %s\n", channel.ID)
 
 	// Send success message to user
 	successMessage := fmt.Sprintf("Good! You added bot to channel: %s (@%s)", botUsername, botUsername)

@@ -75,9 +75,17 @@ func (r *PgChannelRepository) FindByUserID(userID int64) ([]*entities.Channel, e
 }
 
 func (r *PgChannelRepository) Create(channel *entities.Channel) error {
+	// Generate new UUID for the channel
+	newID := uuid.New()
 	query := `INSERT INTO channels (id, user_id, channel_username) VALUES ($1, $2, $3)`
-	_, err := r.db.Exec(query, uuid.New(), channel.UserID, channel.ChannelUsername)
-	return err
+	_, err := r.db.Exec(query, newID, channel.UserID, channel.ChannelUsername)
+	if err != nil {
+		return err
+	}
+
+	// Set the generated ID in the channel object
+	channel.ID = newID
+	return nil
 }
 
 type PgSubscriptionRepository struct {
