@@ -107,9 +107,26 @@ make migrate-force-docker
 
 # Manual migration script
 ./run-migrations.sh
+
+# Auto-fix migration issues (recommended)
+make migrate-fix
+# or
+./fix-migrations.sh
 ```
 
 ### Troubleshooting Migrations
+
+#### Error: "Dirty database version X. Fix and force version."
+This error occurs when a migration was interrupted. **Automatic fix available:**
+
+```bash
+# Option 1: Use auto-fix script (recommended)
+make migrate-fix
+
+# Option 2: Manual fix
+make migrate-force-docker
+# Enter the version number when prompted
+```
 
 #### Error: "column user_id does not exist"
 This error occurs when migrations haven't been applied. Solutions:

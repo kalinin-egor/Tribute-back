@@ -97,6 +97,21 @@ jobs:
           
           # Run database migrations
           echo "🗄️ Running database migrations..."
+          
+          # Check migration status first
+          echo "📊 Checking current migration status..."
+          MIGRATION_STATUS=$(docker-compose exec -T migrate migrate -path /migrations -database "postgres://postgres:password@postgres:5432/tribute_db?sslmode=disable" version 2>&1 || echo "ERROR")
+          
+          if [[ "$MIGRATION_STATUS" == *"dirty"* ]]; then
+            echo "⚠️ Database is in dirty state. Attempting to fix..."
+            # Extract version number from dirty status
+            DIRTY_VERSION=$(echo "$MIGRATION_STATUS" | grep -o '[0-9]\+' | head -1)
+            echo "🔧 Forcing migration version to $DIRTY_VERSION..."
+            docker-compose exec -T migrate migrate -path /migrations -database "postgres://postgres:password@postgres:5432/tribute_db?sslmode=disable" force $DIRTY_VERSION
+            echo "✅ Dirty state fixed. Now running migrations..."
+          fi
+          
+          # Run migrations
           docker-compose exec -T migrate migrate -path /migrations -database "postgres://postgres:password@postgres:5432/tribute_db?sslmode=disable" up || {
             echo "❌ Migration failed, trying alternative approach..."
             # Alternative: run migrations directly in postgres container

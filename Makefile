@@ -123,4 +123,8 @@ dev-full: docker-up
 	@echo "Running migrations..."
 	@docker-compose exec migrate migrate -path /migrations -database "postgres://postgres:password@postgres:5432/tribute_db?sslmode=disable" up
 	@echo "Starting application..."
-	@go run main.go 
+	@go run main.go
+
+# Fix migration issues automatically
+migrate-fix:
+	./fix-migrations.sh 
