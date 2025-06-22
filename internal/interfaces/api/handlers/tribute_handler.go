@@ -49,7 +49,10 @@ func (h *TributeHandler) Dashboard(c *gin.Context) {
 
 	data, err := h.service.GetDashboardData(id)
 	if err != nil {
-		// In a real app, you'd check for specific errors, e.g., not found
+		if err.Error() == "user not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "User not found. Please complete onboarding."})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -59,7 +62,6 @@ func (h *TributeHandler) Dashboard(c *gin.Context) {
 		Earn:           data.User.Earned,
 		IsVerified:     data.User.IsVerified,
 		IsSubPublished: data.User.IsSubPublished,
-		IsOnboarded:    data.User.IsOnboarded,
 		ChannelsAndGroups: func() []dto.ChannelDTO {
 			dtos := make([]dto.ChannelDTO, len(data.Channels))
 			for i, ch := range data.Channels {
@@ -339,17 +341,18 @@ func (h *TributeHandler) CreateSubscribe(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": "Successfully subscribed"})
 }
 
-// @Summary      Mark Onboarding as Complete
-// @Description  Marks the authenticated user's onboarding process as complete.
+// @Summary      Onboard a new user
+// @Description  Creates a user record if one doesn't exist for the authenticated user ID. Marks the user as onboarded.
 // @Tags         Tribute
 // @Accept       json
 // @Produce      json
 // @Security     ApiKeyAuth
-// @Success      200  {object}  map[string]string
+// @Success      200  {object}  map[string]interface{} "User already existed"
+// @Success      201  {object}  map[string]interface{} "User created successfully"
 // @Failure      401  {object}  map[string]string
 // @Failure      500  {object}  map[string]string
-// @Router       /onboarding/complete [post]
-func (h *TributeHandler) CompleteOnboarding(c *gin.Context) {
+// @Router       /onboard [post]
+func (h *TributeHandler) Onboard(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
@@ -361,10 +364,23 @@ func (h *TributeHandler) CompleteOnboarding(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.CompleteOnboarding(id); err != nil {
+	user, err := h.service.OnboardUser(id)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Onboarding completed successfully"})
+	// Check if user was already onboarded to return 200 instead of 201
+	// This is a simple check; a more robust way would be for the service to return a status
+	if c.Writer.Status() != http.StatusCreated {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "User is onboarded",
+			"user":    user,
+		})
+	} else {
+		c.JSON(http.StatusCreated, gin.H{
+			"message": "User created and onboarded successfully",
+			"user":    user,
+		})
+	}
 }

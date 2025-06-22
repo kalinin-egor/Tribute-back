@@ -71,7 +71,7 @@ func NewServer(db *sql.DB, redisClient *redis.Client) *gin.Engine {
 		api.POST("/set-up-payouts", tributeHandler.SetUpPayouts)
 		api.POST("/publish-subscription", tributeHandler.PublishSubscription)
 		api.POST("/create-subscribe", tributeHandler.CreateSubscribe)
-		api.POST("/onboarding/complete", tributeHandler.CompleteOnboarding)
+		api.POST("/onboard", tributeHandler.Onboard)
 	}
 
 	// Swagger

@@ -9,8 +9,8 @@ import (
 // UserRepository defines the interface for user data operations
 type UserRepository interface {
 	FindByID(id int64) (*entities.User, error)
-	Create(user *entities.User) error
 	Update(user *entities.User) error
+	Create(user *entities.User) error
 	// Add other necessary methods
 }
 

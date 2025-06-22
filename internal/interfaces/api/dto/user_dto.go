@@ -65,7 +65,6 @@ type DashboardResponse struct {
 	Subscriptions     []SubDTO     `json:"subscriptions"`
 	IsSubPublished    bool         `json:"is-sub-published"`
 	PaymentsHistory   []PaymentDTO `json:"payments-history"`
-	IsOnboarded       bool         `json:"is-onboarded"`
 }
 
 // AddBot

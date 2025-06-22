@@ -52,20 +52,8 @@ func (s *TributeService) GetDashboardData(userID int64) (*DashboardData, error) 
 	if err != nil {
 		return nil, err
 	}
-
-	// If user does not exist, create a new one (lazy registration)
 	if user == nil {
-		newUser := &entities.User{
-			ID:             userID,
-			Earned:         0,
-			IsVerified:     false,
-			IsSubPublished: false,
-			IsOnboarded:    false,
-		}
-		if err := s.users.Create(newUser); err != nil {
-			return nil, fmt.Errorf("failed to create new user: %w", err)
-		}
-		user = newUser // Use the newly created user for the rest of the logic
+		return nil, errors.New("user not found")
 	}
 
 	channels, err := s.channels.FindByUserID(userID)
@@ -278,17 +266,36 @@ func (s *TributeService) CreateSubscription(subscriberID int64, creatorID int64,
 	return nil
 }
 
-func (s *TributeService) CompleteOnboarding(userID int64) error {
-	user, err := s.users.FindByID(userID)
-	if err != nil {
-		return err
+func (s *TributeService) OnboardUser(userID int64) (*entities.User, error) {
+	// Check if user already exists
+	existingUser, err := s.users.FindByID(userID)
+	if err != nil && err.Error() != "user not found" { // A real error occurred
+		return nil, err
 	}
-	if user == nil {
-		return errors.New("user not found")
+	if existingUser != nil {
+		if !existingUser.IsOnboarded {
+			existingUser.IsOnboarded = true
+			if err := s.users.Update(existingUser); err != nil {
+				return nil, err
+			}
+			return existingUser, nil
+		}
+		return existingUser, nil // User already exists and is onboarded
 	}
 
-	user.IsOnboarded = true
-	return s.users.Update(user)
+	// Create new user if not found
+	newUser := &entities.User{
+		ID:          userID,
+		Earned:      0,
+		IsVerified:  false,
+		IsOnboarded: true, // Mark as onboarded on creation
+	}
+
+	if err := s.users.Create(newUser); err != nil {
+		return nil, err
+	}
+
+	return newUser, nil
 }
 
 // TODO: Implement methods for each endpoint
