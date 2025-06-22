@@ -3,6 +3,7 @@ package server
 import (
 	"database/sql"
 	"log"
+	"net/http"
 	"tribute-back/internal/application/services"
 	"tribute-back/internal/config"
 	"tribute-back/internal/infrastructure/auth"
@@ -30,6 +31,11 @@ func NewServer(db *sql.DB, redisClient *redis.Client) *gin.Engine {
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
 	}))
+
+	// Health check
+	router.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
 
 	// Services
 	jwtService := auth.NewJWTService()
@@ -71,6 +77,8 @@ func NewServer(db *sql.DB, redisClient *redis.Client) *gin.Engine {
 	if config.GetEnv("GIN_MODE", "debug") != "release" {
 		// The url for swagger docs is /swagger/index.html
 		router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+		// Alias for /docs
+		router.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	}
 
 	return router
