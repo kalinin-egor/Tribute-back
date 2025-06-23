@@ -148,6 +148,9 @@ func (s *BotService) DeleteMessage(chatID int64, messageID int) error {
 
 // SendMessage sends a simple text message to a user.
 func (s *BotService) SendMessage(userID int64, text string) error {
+	fmt.Printf("Sending message to user %d: %s\n", userID, text)
+	fmt.Printf("Using bot token: %s...\n", s.token[:10]) // Show first 10 chars for debugging
+
 	url := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", s.token)
 	body := map[string]interface{}{
 		"chat_id": userID,
@@ -155,16 +158,25 @@ func (s *BotService) SendMessage(userID int64, text string) error {
 	}
 	bodyBytes, _ := json.Marshal(body)
 
+	fmt.Printf("Sending request to: %s\n", url)
+	fmt.Printf("Request body: %s\n", string(bodyBytes))
+
 	resp, err := s.client.Post(url, "application/json", bytes.NewBuffer(bodyBytes))
 	if err != nil {
+		fmt.Printf("HTTP request failed: %v\n", err)
 		return err
 	}
 	defer resp.Body.Close()
 
+	respBody, _ := io.ReadAll(resp.Body)
+	fmt.Printf("Response status: %d\n", resp.StatusCode)
+	fmt.Printf("Response body: %s\n", string(respBody))
+
 	if resp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("telegram api error on send message (%d): %s", resp.StatusCode, string(respBody))
 	}
+
+	fmt.Printf("Message sent successfully to user %d\n", userID)
 	return nil
 }
 
