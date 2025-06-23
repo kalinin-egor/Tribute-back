@@ -43,6 +43,7 @@ type DashboardResponse struct {
 
 // AddBot
 type AddBotRequest struct {
+	UserID          int64  `json:"user_id" binding:"required"`
 	ChannelTitle    string `json:"channel_title" binding:"required"`
 	ChannelUsername string `json:"channel_username" binding:"required"`
 }

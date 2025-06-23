@@ -26,12 +26,7 @@ const docTemplate = `{
     "paths": {
         "/add-bot": {
             "post": {
-                "security": [
-                    {
-                        "TgAuth": []
-                    }
-                ],
-                "description": "Adds a new Telegram channel for the authenticated user. The channel is saved with is_verified = false.",
+                "description": "Adds a new Telegram channel for the specified user. The channel is saved with is_verified = false. User must exist in the system.",
                 "consumes": [
                     "application/json"
                 ],
@@ -44,7 +39,7 @@ const docTemplate = `{
                 "summary": "Add a new Channel",
                 "parameters": [
                     {
-                        "description": "The channel title and username to add.",
+                        "description": "The user ID, channel title and username to add.",
                         "name": "payload",
                         "in": "body",
                         "required": true,
@@ -61,19 +56,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request - The request body is invalid or channel is already added.",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized - The Authorization header is missing or invalid.",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden - The provided initData is invalid or expired.",
+                        "description": "Bad Request - The request body is invalid, user not found, or channel is already added.",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
@@ -697,7 +680,8 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "channel_title",
-                "channel_username"
+                "channel_username",
+                "user_id"
             ],
             "properties": {
                 "channel_title": {
@@ -705,6 +689,9 @@ const docTemplate = `{
                 },
                 "channel_username": {
                     "type": "string"
+                },
+                "user_id": {
+                    "type": "integer"
                 }
             }
         },

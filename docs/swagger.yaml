@@ -6,9 +6,12 @@ definitions:
         type: string
       channel_username:
         type: string
+      user_id:
+        type: integer
     required:
     - channel_title
     - channel_username
+    - user_id
     type: object
   dto.AddBotResponse:
     properties:
@@ -218,10 +221,10 @@ paths:
     post:
       consumes:
       - application/json
-      description: Adds a new Telegram channel for the authenticated user. The channel
-        is saved with is_verified = false.
+      description: Adds a new Telegram channel for the specified user. The channel
+        is saved with is_verified = false. User must exist in the system.
       parameters:
-      - description: The channel title and username to add.
+      - description: The user ID, channel title and username to add.
         in: body
         name: payload
         required: true
@@ -235,24 +238,14 @@ paths:
           schema:
             $ref: '#/definitions/dto.AddBotResponse'
         "400":
-          description: Bad Request - The request body is invalid or channel is already
-            added.
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "401":
-          description: Unauthorized - The Authorization header is missing or invalid.
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "403":
-          description: Forbidden - The provided initData is invalid or expired.
+          description: Bad Request - The request body is invalid, user not found,
+            or channel is already added.
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
         "500":
           description: Internal Server Error - Database error.
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
-      security:
-      - TgAuth: []
       summary: Add a new Channel
       tags:
       - Tribute

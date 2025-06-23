@@ -66,6 +66,9 @@ func NewServer(db *sql.DB, redisClient *redis.Client) *gin.Engine {
 	// Public webhook for Telegram
 	router.POST("/api/v1/check-verified-passport", tributeHandler.CheckVerifiedPassport)
 
+	// Public endpoint for adding bot (no auth required)
+	router.POST("/api/v1/add-bot", tributeHandler.AddBot)
+
 	// Protected routes
 	api := router.Group("/api/v1")
 	api.Use(middleware.TelegramAuthMiddleware(tgAuthService))
@@ -73,7 +76,6 @@ func NewServer(db *sql.DB, redisClient *redis.Client) *gin.Engine {
 		api.GET("/dashboard", tributeHandler.Dashboard)
 		api.PUT("/onboard", tributeHandler.Onboard)
 		api.POST("/create-user", tributeHandler.CreateUser)
-		api.POST("/add-bot", tributeHandler.AddBot)
 		api.GET("/channel-list", tributeHandler.GetChannelList)
 		api.POST("/check-channel", tributeHandler.CheckChannel)
 		api.POST("/upload-verified-passport", tributeHandler.UploadVerifiedPassport)

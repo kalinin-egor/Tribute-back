@@ -140,38 +140,34 @@ func (h *TributeHandler) Onboard(c *gin.Context) {
 }
 
 // @Summary      Add a new Channel
-// @Description  Adds a new Telegram channel for the authenticated user. The channel is saved with is_verified = false.
+// @Description  Adds a new Telegram channel for the specified user. The channel is saved with is_verified = false. User must exist in the system.
 // @Tags         Tribute
 // @Accept       json
 // @Produce      json
-// @Security     TgAuth
-// @Param        payload body dto.AddBotRequest true "The channel title and username to add."
+// @Param        payload body dto.AddBotRequest true "The user ID, channel title and username to add."
 // @Success      201  {object}  dto.AddBotResponse     "Created - The channel was added successfully."
-// @Failure      400  {object}  dto.ErrorResponse      "Bad Request - The request body is invalid or channel is already added."
-// @Failure      401  {object}  dto.ErrorResponse      "Unauthorized - The Authorization header is missing or invalid."
-// @Failure      403  {object}  dto.ErrorResponse      "Forbidden - The provided initData is invalid or expired."
+// @Failure      400  {object}  dto.ErrorResponse      "Bad Request - The request body is invalid, user not found, or channel is already added."
 // @Failure      500  {object}  dto.ErrorResponse      "Internal Server Error - Database error."
 // @Router       /add-bot [post]
 func (h *TributeHandler) AddBot(c *gin.Context) {
-	userID, exists := c.Get("userID")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, dto.ErrorResponse{Error: "User not authenticated"})
-		return
-	}
-
-	id, ok := userID.(int64)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Invalid user ID format in token"})
-		return
-	}
-
 	var req dto.AddBotRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: err.Error()})
 		return
 	}
 
-	channel, err := h.service.AddBot(id, req.ChannelTitle, req.ChannelUsername)
+	// Check if user exists
+	_, err := h.service.GetDashboardData(req.UserID)
+	if err != nil {
+		if err.Error() == "user not found" {
+			c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "User not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	channel, err := h.service.AddBot(req.UserID, req.ChannelTitle, req.ChannelUsername)
 	if err != nil {
 		// Check if it's a business logic error (channel already exists)
 		if err.Error() == "this channel is already added to your account" {
