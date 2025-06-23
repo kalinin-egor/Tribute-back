@@ -778,6 +778,9 @@
         "dto.DashboardResponse": {
             "type": "object",
             "properties": {
+                "card_number": {
+                    "type": "string"
+                },
                 "channels-and-groups": {
                     "type": "array",
                     "items": {
@@ -967,6 +970,9 @@
         "dto.UserResponse": {
             "type": "object",
             "properties": {
+                "card_number": {
+                    "type": "string"
+                },
                 "earned": {
                     "type": "number"
                 },

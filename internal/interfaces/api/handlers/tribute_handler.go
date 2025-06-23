@@ -25,6 +25,7 @@ func (h *TributeHandler) buildDashboardResponse(data *services.DashboardData) *d
 		Earn:           data.User.Earned,
 		IsVerified:     data.User.IsVerified,
 		IsSubPublished: data.User.IsSubPublished,
+		CardNumber:     data.User.CardNumber,
 		ChannelsAndGroups: func() []dto.ChannelDTO {
 			dtos := make([]dto.ChannelDTO, len(data.Channels))
 			for i, ch := range data.Channels {
@@ -129,6 +130,7 @@ func (h *TributeHandler) Onboard(c *gin.Context) {
 			IsVerified:     user.IsVerified,
 			IsSubPublished: user.IsSubPublished,
 			IsOnboarded:    user.IsOnboarded,
+			CardNumber:     user.CardNumber,
 		},
 	}
 

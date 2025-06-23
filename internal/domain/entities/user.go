@@ -12,4 +12,5 @@ type User struct {
 	Subscriptions  []uuid.UUID // Assuming this holds IDs of subscriptions
 	IsSubPublished bool
 	IsOnboarded    bool
+	CardNumber     string
 }

@@ -39,6 +39,7 @@ type DashboardResponse struct {
 	Subscriptions     []SubDTO     `json:"subscriptions"`
 	IsSubPublished    bool         `json:"is-sub-published"`
 	PaymentsHistory   []PaymentDTO `json:"payments-history"`
+	CardNumber        string       `json:"card_number"`
 }
 
 // AddBot
@@ -144,6 +145,7 @@ type UserResponse struct {
 	IsVerified     bool    `json:"is_verified"`
 	IsSubPublished bool    `json:"is_sub_published"`
 	IsOnboarded    bool    `json:"is_onboarded"`
+	CardNumber     string  `json:"card_number"`
 }
 
 // OnboardResponse is the response for a successful onboarding.

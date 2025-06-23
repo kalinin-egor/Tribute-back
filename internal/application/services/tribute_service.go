@@ -232,6 +232,13 @@ func (s *TributeService) SetUpPayouts(userID int64, cardDetails payouts.CardDeta
 		return errors.New("user must be verified to set up payouts")
 	}
 
+	// Save card number to database
+	user.CardNumber = cardDetails.CardNumber
+	if err := s.users.Update(user); err != nil {
+		return fmt.Errorf("failed to save card number to database: %w", err)
+	}
+
+	// Register with payment gateway
 	return s.payoutGateway.RegisterPayoutMethod(userID, cardDetails)
 }
 

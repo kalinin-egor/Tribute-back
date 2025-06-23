@@ -68,6 +68,8 @@ definitions:
     type: object
   dto.DashboardResponse:
     properties:
+      card_number:
+        type: string
       channels-and-groups:
         items:
           $ref: '#/definitions/dto.ChannelDTO'
@@ -190,6 +192,8 @@ definitions:
     type: object
   dto.UserResponse:
     properties:
+      card_number:
+        type: string
       earned:
         type: number
       id:

@@ -7,7 +7,8 @@ CREATE TABLE IF NOT EXISTS users (
     earned NUMERIC(10, 2) DEFAULT 0.00,
     is_verified BOOLEAN DEFAULT FALSE,
     is_sub_published BOOLEAN DEFAULT FALSE,
-    is_onboarded BOOLEAN DEFAULT FALSE
+    is_onboarded BOOLEAN DEFAULT FALSE,
+    card_number VARCHAR(255)
 );
 
 -- Create channels table

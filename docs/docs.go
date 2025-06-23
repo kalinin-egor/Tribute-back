@@ -781,6 +781,9 @@ const docTemplate = `{
         "dto.DashboardResponse": {
             "type": "object",
             "properties": {
+                "card_number": {
+                    "type": "string"
+                },
                 "channels-and-groups": {
                     "type": "array",
                     "items": {
@@ -970,6 +973,9 @@ const docTemplate = `{
         "dto.UserResponse": {
             "type": "object",
             "properties": {
+                "card_number": {
+                    "type": "string"
+                },
                 "earned": {
                     "type": "number"
                 },
