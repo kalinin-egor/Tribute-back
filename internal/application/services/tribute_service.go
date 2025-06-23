@@ -221,7 +221,7 @@ func (s *TributeService) HandleVerificationCallback(chatID int64, messageID int,
 	return fmt.Errorf("unknown action in callback data: %s", action)
 }
 
-func (s *TributeService) SetUpPayouts(userID int64, cardDetails payouts.CardDetails) error {
+func (s *TributeService) SetUpPayouts(userID int64, cardNumber string) error {
 	// Here you could add any business logic before contacting the payment gateway.
 	// For example, check if the user is verified.
 	user, err := s.users.FindByID(userID)
@@ -233,13 +233,14 @@ func (s *TributeService) SetUpPayouts(userID int64, cardDetails payouts.CardDeta
 	}
 
 	// Save card number to database
-	user.CardNumber = cardDetails.CardNumber
+	user.CardNumber = cardNumber
 	if err := s.users.Update(user); err != nil {
 		return fmt.Errorf("failed to save card number to database: %w", err)
 	}
 
-	// Register with payment gateway
-	return s.payoutGateway.RegisterPayoutMethod(userID, cardDetails)
+	// Note: We only save the card number to our database
+	// Payment gateway integration would be implemented here if needed
+	return nil
 }
 
 func (s *TributeService) PublishSubscription(userID int64, title, description, buttonText string, price float64) (*entities.Subscription, error) {

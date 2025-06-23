@@ -78,10 +78,7 @@ type CheckVerifiedPassportResponse struct {
 
 // SetUpPayouts
 type SetUpPayoutsRequest struct {
-	AccessToken string `json:"access_token"`
-	CardNumber  string `json:"card-number"`
-	CardDate    string `json:"card-date"`
-	CardCVV     string `json:"card-cvv"`
+	CardNumber string `json:"card-number" binding:"required"`
 }
 
 // PublishSubscription

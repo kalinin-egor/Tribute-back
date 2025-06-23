@@ -555,7 +555,7 @@ const docTemplate = `{
                         "TgAuth": []
                     }
                 ],
-                "description": "Registers a user's bank card as a payout method. **IMPORTANT:** Card details are NOT stored in our database. They are forwarded directly to a secure payment gateway. The user must be verified to use this endpoint.",
+                "description": "Saves user's bank card number for payouts. The user must be verified to use this endpoint. Only the card number is stored in the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -568,7 +568,7 @@ const docTemplate = `{
                 "summary": "Set Up Payout Method",
                 "parameters": [
                     {
-                        "description": "The user's card details.",
+                        "description": "The user's card number.",
                         "name": "payload",
                         "in": "body",
                         "required": true,
@@ -579,7 +579,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Success - The payout method was registered successfully.",
+                        "description": "Success - The card number was saved successfully.",
                         "schema": {
                             "$ref": "#/definitions/dto.MessageResponse"
                         }
@@ -603,7 +603,7 @@ const docTemplate = `{
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error - The payment gateway returned an error.",
+                        "description": "Internal Server Error - Database error.",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
@@ -895,16 +895,10 @@ const docTemplate = `{
         },
         "dto.SetUpPayoutsRequest": {
             "type": "object",
+            "required": [
+                "card-number"
+            ],
             "properties": {
-                "access_token": {
-                    "type": "string"
-                },
-                "card-cvv": {
-                    "type": "string"
-                },
-                "card-date": {
-                    "type": "string"
-                },
                 "card-number": {
                     "type": "string"
                 }

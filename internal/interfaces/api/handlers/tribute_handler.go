@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 	"tribute-back/internal/application/services"
-	"tribute-back/internal/infrastructure/payouts"
 	"tribute-back/internal/interfaces/api/dto"
 
 	"github.com/gin-gonic/gin"
@@ -276,17 +275,17 @@ func (h *TributeHandler) CheckVerifiedPassport(c *gin.Context) {
 }
 
 // @Summary      Set Up Payout Method
-// @Description  Registers a user's bank card as a payout method. **IMPORTANT:** Card details are NOT stored in our database. They are forwarded directly to a secure payment gateway. The user must be verified to use this endpoint.
+// @Description  Saves user's bank card number for payouts. The user must be verified to use this endpoint. Only the card number is stored in the database.
 // @Tags         Tribute
 // @Accept       json
 // @Produce      json
 // @Security     TgAuth
-// @Param        payload body dto.SetUpPayoutsRequest true "The user's card details."
-// @Success      200  {object}  dto.MessageResponse    "Success - The payout method was registered successfully."
+// @Param        payload body dto.SetUpPayoutsRequest true "The user's card number."
+// @Success      200  {object}  dto.MessageResponse    "Success - The card number was saved successfully."
 // @Failure      400  {object}  dto.ErrorResponse      "Bad Request - The request body is invalid."
 // @Failure      401  {object}  dto.ErrorResponse      "Unauthorized - The Authorization header is missing or invalid."
 // @Failure      403  {object}  dto.ErrorResponse      "Forbidden - The provided initData is invalid or expired, or the user is not verified."
-// @Failure      500  {object}  dto.ErrorResponse      "Internal Server Error - The payment gateway returned an error."
+// @Failure      500  {object}  dto.ErrorResponse      "Internal Server Error - Database error."
 // @Router       /set-up-payouts [post]
 func (h *TributeHandler) SetUpPayouts(c *gin.Context) {
 	userID, ok := c.Get("userID")
@@ -307,13 +306,7 @@ func (h *TributeHandler) SetUpPayouts(c *gin.Context) {
 		return
 	}
 
-	cardDetails := payouts.CardDetails{
-		CardNumber: req.CardNumber,
-		CardDate:   req.CardDate,
-		CardCVV:    req.CardCVV,
-	}
-
-	if err := h.service.SetUpPayouts(id, cardDetails); err != nil {
+	if err := h.service.SetUpPayouts(id, req.CardNumber); err != nil {
 		if strings.Contains(err.Error(), "user must be verified") {
 			c.JSON(http.StatusForbidden, dto.ErrorResponse{Error: err.Error()})
 			return

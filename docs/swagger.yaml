@@ -142,14 +142,10 @@ definitions:
     type: object
   dto.SetUpPayoutsRequest:
     properties:
-      access_token:
-        type: string
-      card-cvv:
-        type: string
-      card-date:
-        type: string
       card-number:
         type: string
+    required:
+    - card-number
     type: object
   dto.StatusResponse:
     properties:
@@ -577,11 +573,10 @@ paths:
     post:
       consumes:
       - application/json
-      description: Registers a user's bank card as a payout method. **IMPORTANT:**
-        Card details are NOT stored in our database. They are forwarded directly to
-        a secure payment gateway. The user must be verified to use this endpoint.
+      description: Saves user's bank card number for payouts. The user must be verified
+        to use this endpoint. Only the card number is stored in the database.
       parameters:
-      - description: The user's card details.
+      - description: The user's card number.
         in: body
         name: payload
         required: true
@@ -591,7 +586,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: Success - The payout method was registered successfully.
+          description: Success - The card number was saved successfully.
           schema:
             $ref: '#/definitions/dto.MessageResponse'
         "400":
@@ -608,7 +603,7 @@ paths:
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
         "500":
-          description: Internal Server Error - The payment gateway returned an error.
+          description: Internal Server Error - Database error.
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
       security:
