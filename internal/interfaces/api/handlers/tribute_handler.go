@@ -236,38 +236,31 @@ func (h *TributeHandler) UploadVerifiedPassport(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.MessageResponse{Message: "Verification request sent successfully"})
 }
 
-// @Summary      Telegram Verification Webhook
-// @Description  **PUBLIC ENDPOINT.** This endpoint is intended to be called by Telegram in response to an admin clicking a button in the verification chat. It should not be called directly by the frontend. It processes verification approvals and rejections.
-// @Tags         Webhooks
+// @Summary      Check Verified Passport
+// @Description  Updates user verification status based on provided parameters. This endpoint can be called directly to set user verification status.
+// @Tags         Tribute
 // @Accept       json
 // @Produce      json
-// @Param        payload body dto.TelegramUpdate true "The callback query update sent by Telegram."
-// @Success      200  {object}  dto.StatusResponse     "Success - The callback was processed."
-// @Failure      400  {object}  dto.ErrorResponse      "Bad Request - The payload from Telegram is malformed."
-// @Failure      500  {object}  dto.ErrorResponse      "Internal Server Error - Failed to process the callback data."
+// @Param        payload body dto.CheckVerifiedPassportRequest true "User ID and verification status."
+// @Success      200  {object}  dto.StatusResponse     "Success - User verification status updated."
+// @Failure      400  {object}  dto.ErrorResponse      "Bad Request - Invalid request body."
+// @Failure      404  {object}  dto.ErrorResponse      "Not Found - User not found."
+// @Failure      500  {object}  dto.ErrorResponse      "Internal Server Error - Failed to update user verification status."
 // @Router       /check-verified-passport [post]
 func (h *TributeHandler) CheckVerifiedPassport(c *gin.Context) {
-	var update dto.TelegramUpdate
-	if err := c.ShouldBindJSON(&update); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Cannot parse Telegram update"})
+	var req dto.CheckVerifiedPassportRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid request body: " + err.Error()})
 		return
 	}
 
-	if update.CallbackQuery == nil || update.CallbackQuery.Message == nil {
-		c.JSON(http.StatusOK, dto.StatusResponse{Status: "Not a valid callback query, ignoring"})
-		return
-	}
-
-	err := h.service.HandleVerificationCallback(
-		update.CallbackQuery.Message.Chat.ID,
-		update.CallbackQuery.Message.MessageID,
-		update.CallbackQuery.Data,
-	)
-
+	err := h.service.UpdateUserVerification(req.UserID, req.IsVerificated)
 	if err != nil {
-		// In a real app, you might want to answer the callback query with an error message to the admin.
-		// For now, just log it and return an error.
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to process callback: " + err.Error()})
+		if strings.Contains(err.Error(), "user not found") {
+			c.JSON(http.StatusNotFound, dto.ErrorResponse{Error: err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to update user verification: " + err.Error()})
 		return
 	}
 

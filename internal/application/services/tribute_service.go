@@ -442,3 +442,21 @@ func (s *TributeService) ResetDatabase() error {
 
 	return nil
 }
+
+// UpdateUserVerification updates the verification status of a user
+func (s *TributeService) UpdateUserVerification(userID int64, isVerified bool) error {
+	user, err := s.users.FindByID(userID)
+	if err != nil {
+		return err
+	}
+	if user == nil {
+		return errors.New("user not found")
+	}
+
+	user.IsVerified = isVerified
+	if err := s.users.Update(user); err != nil {
+		return fmt.Errorf("failed to update user verification status: %w", err)
+	}
+
+	return nil
+}

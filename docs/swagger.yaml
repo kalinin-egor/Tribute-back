@@ -59,6 +59,16 @@ definitions:
       is_owner:
         type: boolean
     type: object
+  dto.CheckVerifiedPassportRequest:
+    properties:
+      userId:
+        type: integer
+      isVerificated:
+        type: boolean
+    required:
+    - userId
+    - isVerificated
+    type: object
   dto.CreateSubscribeRequest:
     properties:
       price:
@@ -323,35 +333,36 @@ paths:
     post:
       consumes:
       - application/json
-      description: '**PUBLIC ENDPOINT.** This endpoint is intended to be called by
-        Telegram in response to an admin clicking a button in the verification chat.
-        It should not be called directly by the frontend. It processes verification
-        approvals and rejections.'
+      description: Updates user verification status based on provided parameters. This endpoint can be called directly to set user verification status.
       parameters:
-      - description: The callback query update sent by Telegram.
+      - description: User ID and verification status.
         in: body
         name: payload
         required: true
         schema:
-          $ref: '#/definitions/dto.TelegramUpdate'
+          $ref: '#/definitions/dto.CheckVerifiedPassportRequest'
       produces:
       - application/json
       responses:
         "200":
-          description: Success - The callback was processed.
+          description: Success - User verification status updated.
           schema:
             $ref: '#/definitions/dto.StatusResponse'
         "400":
-          description: Bad Request - The payload from Telegram is malformed.
+          description: Bad Request - Invalid request body.
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found - User not found.
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
         "500":
-          description: Internal Server Error - Failed to process the callback data.
+          description: Internal Server Error - Failed to update user verification status.
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
-      summary: Telegram Verification Webhook
+      summary: Check Verified Passport
       tags:
-      - Webhooks
+      - Tribute
   /create-subscribe:
     post:
       consumes:
