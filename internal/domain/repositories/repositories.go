@@ -17,7 +17,10 @@ type UserRepository interface {
 // ChannelRepository defines the interface for channel data operations
 type ChannelRepository interface {
 	FindByUserID(userID int64) ([]*entities.Channel, error)
+	FindByID(id uuid.UUID) (*entities.Channel, error)
 	Create(channel *entities.Channel) error
+	Update(channel *entities.Channel) error
+	Delete(id uuid.UUID) error
 	// Add other necessary methods
 }
 

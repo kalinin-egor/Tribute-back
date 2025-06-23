@@ -12,6 +12,8 @@ import (
 	"tribute-back/internal/infrastructure/database/postgres"
 	"tribute-back/internal/infrastructure/payouts"
 	"tribute-back/internal/infrastructure/telegram"
+
+	"github.com/google/uuid"
 )
 
 type TributeService struct {
@@ -80,66 +82,73 @@ func (s *TributeService) GetDashboardData(userID int64) (*DashboardData, error) 
 	}, nil
 }
 
-func (s *TributeService) AddBot(userID int64, botUsername string) (*entities.Channel, error) {
-	// Send initial notification
-	initialMessage := fmt.Sprintf("Just a moment, we are checking bot permissions in %s", botUsername)
-	if err := s.telegramBot.SendMessage(userID, initialMessage); err != nil {
-		// Log error but don't fail the operation
-		fmt.Printf("Failed to send initial message to user %d: %v\n", userID, err)
-	}
-
-	// Check if user is owner/admin of the channel
-	chatMember, err := s.telegramBot.CheckChannelMembership(botUsername, userID)
-	if err != nil {
-		// Send error message to user
-		errorMessage := "Failed to check channel permissions. Please try again."
-		s.telegramBot.SendMessage(userID, errorMessage)
-		return nil, fmt.Errorf("failed to check channel membership: %w", err)
-	}
-
-	// Only allow owners and administrators to add their channels
-	if chatMember.Status != "creator" && chatMember.Status != "administrator" {
-		// Send rejection message to user
-		rejectionMessage := "You are not the owner of this channel."
-		s.telegramBot.SendMessage(userID, rejectionMessage)
-		return nil, errors.New("you must be the owner or administrator of this channel to add it")
-	}
-
-	// Optional: Check if the bot (channel) already exists for this user to prevent duplicates
+func (s *TributeService) AddBot(userID int64, channelTitle, channelUsername string) (*entities.Channel, error) {
+	// Check if the channel already exists for this user to prevent duplicates
 	existingChannels, err := s.channels.FindByUserID(userID)
 	if err != nil {
 		return nil, err
 	}
 	for _, ch := range existingChannels {
-		if ch.ChannelUsername == botUsername {
-			// Send duplicate message to user
-			duplicateMessage := fmt.Sprintf("Channel %s is already added to your account.", botUsername)
-			s.telegramBot.SendMessage(userID, duplicateMessage)
+		if ch.ChannelUsername == channelUsername {
 			return nil, errors.New("this channel is already added to your account")
 		}
 	}
 
 	channel := &entities.Channel{
 		UserID:          userID,
-		ChannelUsername: botUsername,
+		ChannelTitle:    channelTitle,
+		ChannelUsername: channelUsername,
+		IsVerified:      false,
 	}
 
-	fmt.Printf("Creating channel for user %d with username %s\n", userID, botUsername)
 	err = s.channels.Create(channel)
 	if err != nil {
-		fmt.Printf("Failed to create channel: %v\n", err)
 		return nil, err
-	}
-	fmt.Printf("Successfully created channel with ID: %s\n", channel.ID)
-
-	// Send success message to user
-	successMessage := fmt.Sprintf("Good! You added bot to channel: %s (@%s)", botUsername, botUsername)
-	if err := s.telegramBot.SendMessage(userID, successMessage); err != nil {
-		// Log error but don't fail the operation
-		fmt.Printf("Failed to send success message to user %d: %v\n", userID, err)
 	}
 
 	return channel, nil
+}
+
+func (s *TributeService) GetChannelList(userID int64) ([]*entities.Channel, error) {
+	return s.channels.FindByUserID(userID)
+}
+
+func (s *TributeService) CheckChannel(userID int64, channelID uuid.UUID) (bool, error) {
+	// Get channel by ID
+	channel, err := s.channels.FindByID(channelID)
+	if err != nil {
+		return false, err
+	}
+	if channel == nil {
+		return false, errors.New("channel not found")
+	}
+
+	// Check if user owns this channel
+	if channel.UserID != userID {
+		return false, errors.New("channel does not belong to this user")
+	}
+
+	// Check if user is owner/admin of the channel via Telegram API
+	chatMember, err := s.telegramBot.CheckChannelMembership(channel.ChannelUsername, userID)
+	if err != nil {
+		return false, fmt.Errorf("failed to check channel membership: %w", err)
+	}
+
+	// Check if user is owner or administrator
+	if chatMember.Status == "creator" || chatMember.Status == "administrator" {
+		// User is owner/admin, update verification status
+		channel.IsVerified = true
+		if err := s.channels.Update(channel); err != nil {
+			return false, fmt.Errorf("failed to update channel verification: %w", err)
+		}
+		return true, nil
+	} else {
+		// User is not owner/admin, delete the channel
+		if err := s.channels.Delete(channelID); err != nil {
+			return false, fmt.Errorf("failed to delete channel: %w", err)
+		}
+		return false, nil
+	}
 }
 
 func (s *TributeService) RequestVerification(userID int64, userPhotoB64, userPassportB64 string) error {
@@ -400,7 +409,9 @@ func (s *TributeService) ResetDatabase() error {
 		`CREATE TABLE IF NOT EXISTS channels (
 			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 			user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-			channel_username VARCHAR(255) UNIQUE NOT NULL
+			channel_title VARCHAR(255) NOT NULL,
+			channel_username VARCHAR(255) UNIQUE NOT NULL,
+			is_verified BOOLEAN DEFAULT FALSE
 		)`,
 		`CREATE TABLE IF NOT EXISTS subscriptions (
 			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

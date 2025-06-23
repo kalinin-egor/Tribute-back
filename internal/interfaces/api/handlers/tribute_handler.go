@@ -28,7 +28,7 @@ func (h *TributeHandler) buildDashboardResponse(data *services.DashboardData) *d
 		ChannelsAndGroups: func() []dto.ChannelDTO {
 			dtos := make([]dto.ChannelDTO, len(data.Channels))
 			for i, ch := range data.Channels {
-				dtos[i] = dto.ChannelDTO{ID: ch.ID, ChannelUsername: ch.ChannelUsername}
+				dtos[i] = dto.ChannelDTO{ID: ch.ID, ChannelTitle: ch.ChannelTitle, ChannelUsername: ch.ChannelUsername, IsVerified: ch.IsVerified}
 			}
 			return dtos
 		}(),
@@ -139,18 +139,18 @@ func (h *TributeHandler) Onboard(c *gin.Context) {
 	}
 }
 
-// @Summary      Add a new Bot/Channel
-// @Description  Adds a new Telegram channel for the authenticated user. The user must be owner or administrator of the channel. Sends Telegram notifications about the process status. This allows the system to associate a bot with the user's account.
+// @Summary      Add a new Channel
+// @Description  Adds a new Telegram channel for the authenticated user. The channel is saved with is_verified = false.
 // @Tags         Tribute
 // @Accept       json
 // @Produce      json
 // @Security     TgAuth
-// @Param        payload body dto.AddBotRequest true "The username of the channel to add."
-// @Success      201  {object}  dto.AddBotResponse     "Created - The bot was added successfully."
-// @Failure      400  {object}  dto.ErrorResponse      "Bad Request - The request body is invalid, user is not owner/admin of the channel, or channel is already added."
+// @Param        payload body dto.AddBotRequest true "The channel title and username to add."
+// @Success      201  {object}  dto.AddBotResponse     "Created - The channel was added successfully."
+// @Failure      400  {object}  dto.ErrorResponse      "Bad Request - The request body is invalid or channel is already added."
 // @Failure      401  {object}  dto.ErrorResponse      "Unauthorized - The Authorization header is missing or invalid."
 // @Failure      403  {object}  dto.ErrorResponse      "Forbidden - The provided initData is invalid or expired."
-// @Failure      500  {object}  dto.ErrorResponse      "Internal Server Error - Failed to verify channel ownership or database error."
+// @Failure      500  {object}  dto.ErrorResponse      "Internal Server Error - Database error."
 // @Router       /add-bot [post]
 func (h *TributeHandler) AddBot(c *gin.Context) {
 	userID, exists := c.Get("userID")
@@ -171,24 +171,25 @@ func (h *TributeHandler) AddBot(c *gin.Context) {
 		return
 	}
 
-	channel, err := h.service.AddBot(id, req.ChannelUsername)
+	channel, err := h.service.AddBot(id, req.ChannelTitle, req.ChannelUsername)
 	if err != nil {
-		// Check if it's a business logic error (user not owner, channel already exists)
-		if err.Error() == "you must be the owner or administrator of this channel to add it" ||
-			err.Error() == "this channel is already added to your account" {
+		// Check if it's a business logic error (channel already exists)
+		if err.Error() == "this channel is already added to your account" {
 			c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: err.Error()})
 			return
 		}
-		// For other errors (network, database, etc.) return 500
+		// For other errors (database, etc.) return 500
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusCreated, dto.AddBotResponse{
-		Message: "Bot added successfully",
+		Message: "Channel added successfully",
 		Channel: dto.ChannelDTO{
 			ID:              channel.ID,
+			ChannelTitle:    channel.ChannelTitle,
 			ChannelUsername: channel.ChannelUsername,
+			IsVerified:      channel.IsVerified,
 		},
 	})
 }
@@ -478,4 +479,96 @@ func (h *TributeHandler) ResetDatabase(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, dto.MessageResponse{Message: "Database reset successfully"})
+}
+
+// @Summary      Get Channel List
+// @Description  Returns a list of all channels for the authenticated user.
+// @Tags         Tribute
+// @Produce      json
+// @Security     TgAuth
+// @Success      200  {array}   dto.ChannelDTO          "Success - List of user's channels."
+// @Failure      401  {object}  dto.ErrorResponse       "Unauthorized - The Authorization header is missing or invalid."
+// @Failure      403  {object}  dto.ErrorResponse       "Forbidden - The provided initData is invalid or expired."
+// @Failure      500  {object}  dto.ErrorResponse       "Internal Server Error - Database error."
+// @Router       /channel-list [get]
+func (h *TributeHandler) GetChannelList(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, dto.ErrorResponse{Error: "User not authenticated"})
+		return
+	}
+
+	id, ok := userID.(int64)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Invalid user ID format in token"})
+		return
+	}
+
+	channels, err := h.service.GetChannelList(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	// Convert to DTO
+	channelDTOs := make([]dto.ChannelDTO, len(channels))
+	for i, ch := range channels {
+		channelDTOs[i] = dto.ChannelDTO{
+			ID:              ch.ID,
+			ChannelTitle:    ch.ChannelTitle,
+			ChannelUsername: ch.ChannelUsername,
+			IsVerified:      ch.IsVerified,
+		}
+	}
+
+	c.JSON(http.StatusOK, channelDTOs)
+}
+
+// @Summary      Check Channel Ownership
+// @Description  Checks if the user is the owner of the specified channel. If yes, sets is_verified = true. If no, deletes the channel.
+// @Tags         Tribute
+// @Accept       json
+// @Produce      json
+// @Security     TgAuth
+// @Param        payload body dto.CheckChannelRequest true "The channel ID to check."
+// @Success      200  {object}  dto.CheckChannelResponse "Success - Channel ownership check result."
+// @Failure      400  {object}  dto.ErrorResponse        "Bad Request - The request body is invalid or channel not found."
+// @Failure      401  {object}  dto.ErrorResponse        "Unauthorized - The Authorization header is missing or invalid."
+// @Failure      403  {object}  dto.ErrorResponse        "Forbidden - The provided initData is invalid or expired."
+// @Failure      500  {object}  dto.ErrorResponse        "Internal Server Error - Failed to verify channel ownership."
+// @Router       /check-channel [post]
+func (h *TributeHandler) CheckChannel(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, dto.ErrorResponse{Error: "User not authenticated"})
+		return
+	}
+
+	id, ok := userID.(int64)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Invalid user ID format in token"})
+		return
+	}
+
+	var req dto.CheckChannelRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	isOwner, err := h.service.CheckChannel(id, req.ChannelID)
+	if err != nil {
+		// Check if it's a business logic error (channel not found, not owned by user)
+		if err.Error() == "channel not found" || err.Error() == "channel does not belong to this user" {
+			c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: err.Error()})
+			return
+		}
+		// For other errors (network, database, etc.) return 500
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.CheckChannelResponse{
+		IsOwner: isOwner,
+	})
 }

@@ -14,7 +14,9 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS channels (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-    channel_username VARCHAR(255) UNIQUE NOT NULL
+    channel_title VARCHAR(255) NOT NULL,
+    channel_username VARCHAR(255) UNIQUE NOT NULL,
+    is_verified BOOLEAN DEFAULT FALSE
 );
 
 -- Create subscriptions table

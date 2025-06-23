@@ -43,7 +43,18 @@ type DashboardResponse struct {
 
 // AddBot
 type AddBotRequest struct {
-	ChannelUsername string `json:"channel-username" binding:"required"`
+	ChannelTitle    string `json:"channel_title" binding:"required"`
+	ChannelUsername string `json:"channel_username" binding:"required"`
+}
+
+// CheckChannelRequest represents the request for checking channel ownership
+type CheckChannelRequest struct {
+	ChannelID uuid.UUID `json:"channel_id" binding:"required"`
+}
+
+// CheckChannelResponse represents the response for channel ownership check
+type CheckChannelResponse struct {
+	IsOwner bool `json:"is_owner"`
 }
 
 // UploadVerifiedPassport
@@ -89,7 +100,9 @@ type CreateSubscribeRequest struct {
 // --- Reusable DTOs ---
 type ChannelDTO struct {
 	ID              uuid.UUID `json:"id"`
+	ChannelTitle    string    `json:"channel_title"`
 	ChannelUsername string    `json:"channel_username"`
+	IsVerified      bool      `json:"is_verified"`
 }
 
 type SubDTO struct {

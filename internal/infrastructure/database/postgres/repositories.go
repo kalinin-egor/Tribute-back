@@ -56,7 +56,7 @@ func NewPgChannelRepository(db *sql.DB) repositories.ChannelRepository {
 }
 
 func (r *PgChannelRepository) FindByUserID(userID int64) ([]*entities.Channel, error) {
-	query := "SELECT id, user_id, channel_username FROM channels WHERE user_id = $1"
+	query := "SELECT id, user_id, channel_title, channel_username, is_verified FROM channels WHERE user_id = $1"
 	rows, err := r.db.Query(query, userID)
 	if err != nil {
 		return nil, err
@@ -66,7 +66,7 @@ func (r *PgChannelRepository) FindByUserID(userID int64) ([]*entities.Channel, e
 	var channels []*entities.Channel
 	for rows.Next() {
 		channel := &entities.Channel{}
-		if err := rows.Scan(&channel.ID, &channel.UserID, &channel.ChannelUsername); err != nil {
+		if err := rows.Scan(&channel.ID, &channel.UserID, &channel.ChannelTitle, &channel.ChannelUsername, &channel.IsVerified); err != nil {
 			return nil, err
 		}
 		channels = append(channels, channel)
@@ -74,18 +74,35 @@ func (r *PgChannelRepository) FindByUserID(userID int64) ([]*entities.Channel, e
 	return channels, nil
 }
 
-func (r *PgChannelRepository) Create(channel *entities.Channel) error {
-	// Generate new UUID for the channel
-	newID := uuid.New()
-	query := `INSERT INTO channels (id, user_id, channel_username) VALUES ($1, $2, $3)`
-	_, err := r.db.Exec(query, newID, channel.UserID, channel.ChannelUsername)
+func (r *PgChannelRepository) FindByID(id uuid.UUID) (*entities.Channel, error) {
+	channel := &entities.Channel{}
+	query := "SELECT id, user_id, channel_title, channel_username, is_verified FROM channels WHERE id = $1"
+	err := r.db.QueryRow(query, id).Scan(&channel.ID, &channel.UserID, &channel.ChannelTitle, &channel.ChannelUsername, &channel.IsVerified)
 	if err != nil {
-		return err
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
 	}
+	return channel, nil
+}
 
-	// Set the generated ID in the channel object
-	channel.ID = newID
-	return nil
+func (r *PgChannelRepository) Create(channel *entities.Channel) error {
+	query := `INSERT INTO channels (id, user_id, channel_title, channel_username, is_verified) VALUES ($1, $2, $3, $4, $5)`
+	_, err := r.db.Exec(query, uuid.New(), channel.UserID, channel.ChannelTitle, channel.ChannelUsername, channel.IsVerified)
+	return err
+}
+
+func (r *PgChannelRepository) Update(channel *entities.Channel) error {
+	query := `UPDATE channels SET user_id = $2, channel_title = $3, channel_username = $4, is_verified = $5 WHERE id = $1`
+	_, err := r.db.Exec(query, channel.ID, channel.UserID, channel.ChannelTitle, channel.ChannelUsername, channel.IsVerified)
+	return err
+}
+
+func (r *PgChannelRepository) Delete(id uuid.UUID) error {
+	query := `DELETE FROM channels WHERE id = $1`
+	_, err := r.db.Exec(query, id)
+	return err
 }
 
 type PgSubscriptionRepository struct {
