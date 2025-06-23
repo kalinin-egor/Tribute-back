@@ -31,7 +31,7 @@ const docTemplate = `{
                         "TgAuth": []
                     }
                 ],
-                "description": "Adds a new Telegram channel for the authenticated user. This allows the system to associate a bot with the user's account.",
+                "description": "Adds a new Telegram channel for the authenticated user. The channel is saved with is_verified = false.",
                 "consumes": [
                     "application/json"
                 ],
@@ -41,10 +41,10 @@ const docTemplate = `{
                 "tags": [
                     "Tribute"
                 ],
-                "summary": "Add a new Bot/Channel",
+                "summary": "Add a new Channel",
                 "parameters": [
                     {
-                        "description": "The username of the bot/channel to add.",
+                        "description": "The channel title and username to add.",
                         "name": "payload",
                         "in": "body",
                         "required": true,
@@ -55,13 +55,13 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "Created - The bot was added successfully.",
+                        "description": "Created - The channel was added successfully.",
                         "schema": {
                             "$ref": "#/definitions/dto.AddBotResponse"
                         }
                     },
                     "400": {
-                        "description": "Bad Request - The request body is invalid.",
+                        "description": "Bad Request - The request body is invalid or channel is already added.",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
@@ -79,7 +79,116 @@ const docTemplate = `{
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error - e.g., bot with this username already exists.",
+                        "description": "Internal Server Error - Database error.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/channel-list": {
+            "get": {
+                "security": [
+                    {
+                        "TgAuth": []
+                    }
+                ],
+                "description": "Returns a list of all channels for the authenticated user.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tribute"
+                ],
+                "summary": "Get Channel List",
+                "responses": {
+                    "200": {
+                        "description": "Success - List of user's channels.",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/dto.ChannelDTO"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - The Authorization header is missing or invalid.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - The provided initData is invalid or expired.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error - Database error.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/check-channel": {
+            "post": {
+                "security": [
+                    {
+                        "TgAuth": []
+                    }
+                ],
+                "description": "Checks if the user is the owner of the specified channel. If yes, sets is_verified = true. If no, deletes the channel.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tribute"
+                ],
+                "summary": "Check Channel Ownership",
+                "parameters": [
+                    {
+                        "description": "The channel ID to check.",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.CheckChannelRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success - Channel ownership check result.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.CheckChannelResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request - The request body is invalid or channel not found.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - The Authorization header is missing or invalid.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - The provided initData is invalid or expired.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error - Failed to verify channel ownership.",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
@@ -196,24 +305,30 @@ const docTemplate = `{
                 }
             }
         },
-        "/dashboard": {
-            "get": {
+        "/create-user": {
+            "post": {
                 "security": [
                     {
                         "TgAuth": []
                     }
                 ],
-                "description": "Retrieves all data for the main dashboard screen. The user is identified via the ` + "`" + `initData` + "`" + ` in the Authorization header. If the user does not exist in the database, empty data is returned, which is a normal flow indicating the user needs to complete onboarding via the ` + "`" + `/onboard` + "`" + ` endpoint.",
+                "description": "Creates a new user if one doesn't exist, otherwise returns the existing user. This endpoint is idempotent and returns dashboard data.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "Tribute"
                 ],
-                "summary": "Get Dashboard Data",
+                "summary": "Create User",
                 "responses": {
                     "200": {
-                        "description": "Successfully retrieved dashboard data (empty if user not onboarded).",
+                        "description": "Success - User already existed.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.DashboardResponse"
+                        }
+                    },
+                    "201": {
+                        "description": "Created - A new user was created.",
                         "schema": {
                             "$ref": "#/definitions/dto.DashboardResponse"
                         }
@@ -226,6 +341,55 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "Forbidden - The provided initData is invalid or expired.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error - An unexpected error occurred.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/dashboard": {
+            "get": {
+                "security": [
+                    {
+                        "TgAuth": []
+                    }
+                ],
+                "description": "Retrieves all data for the main dashboard screen. The user is identified via the ` + "`" + `initData` + "`" + ` in the Authorization header. If the user does not exist in the database, a 404 error is returned.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tribute"
+                ],
+                "summary": "Get Dashboard Data",
+                "responses": {
+                    "200": {
+                        "description": "Successfully retrieved dashboard data.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.DashboardResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - The Authorization header is missing or invalid.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - The provided initData is invalid or expired.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found - The user does not exist in the database.",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
@@ -375,6 +539,32 @@ const docTemplate = `{
                 }
             }
         },
+        "/reset-database": {
+            "get": {
+                "description": "Drops all tables and recreates them with empty structure. WARNING: This will delete all data!",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Development"
+                ],
+                "summary": "Reset Database",
+                "responses": {
+                    "200": {
+                        "description": "Success - Database was reset successfully.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.MessageResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error - An unexpected error occurred.",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/set-up-payouts": {
             "post": {
                 "security": [
@@ -505,11 +695,15 @@ const docTemplate = `{
     "definitions": {
         "dto.AddBotRequest": {
             "type": "object",
+            "required": [
+                "channel_title",
+                "channel_username"
+            ],
             "properties": {
-                "access_token": {
+                "channel_title": {
                     "type": "string"
                 },
-                "bot-username": {
+                "channel_username": {
                     "type": "string"
                 }
             }
@@ -545,11 +739,17 @@ const docTemplate = `{
         "dto.ChannelDTO": {
             "type": "object",
             "properties": {
+                "channel_title": {
+                    "type": "string"
+                },
                 "channel_username": {
                     "type": "string"
                 },
                 "id": {
                     "type": "string"
+                },
+                "is_verified": {
+                    "type": "boolean"
                 }
             }
         },
@@ -558,6 +758,25 @@ const docTemplate = `{
             "properties": {
                 "id": {
                     "type": "integer"
+                }
+            }
+        },
+        "dto.CheckChannelRequest": {
+            "type": "object",
+            "required": [
+                "channel_id"
+            ],
+            "properties": {
+                "channel_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.CheckChannelResponse": {
+            "type": "object",
+            "properties": {
+                "is_owner": {
+                    "type": "boolean"
                 }
             }
         },
