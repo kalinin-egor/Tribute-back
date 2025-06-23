@@ -9,6 +9,7 @@ import (
 	"time"
 	"tribute-back/internal/domain/entities"
 	"tribute-back/internal/domain/repositories"
+	"tribute-back/internal/infrastructure/database/postgres"
 	"tribute-back/internal/infrastructure/payouts"
 	"tribute-back/internal/infrastructure/telegram"
 
@@ -375,8 +376,69 @@ func (s *TributeService) CreateSubscription(subscriberID int64, creatorID int64,
 
 // ResetDatabase resets all data in the database (for development/testing)
 func (s *TributeService) ResetDatabase() error {
-	// Note: Since DeleteAll methods are not available in repositories,
-	// this method would need to be implemented differently or removed
-	// For now, we'll return an error indicating this is not implemented
-	return errors.New("ResetDatabase method not implemented - DeleteAll methods not available in repositories")
+	// Get database connection from user repository
+	db := s.users.(*postgres.PgUserRepository).GetDB()
+
+	// Drop all tables in correct order (due to foreign key constraints)
+	queries := []string{
+		"DROP TABLE IF EXISTS payments CASCADE",
+		"DROP TABLE IF EXISTS subscriptions CASCADE",
+		"DROP TABLE IF EXISTS channels CASCADE",
+		"DROP TABLE IF EXISTS users CASCADE",
+	}
+
+	for _, query := range queries {
+		if _, err := db.Exec(query); err != nil {
+			return fmt.Errorf("failed to execute query '%s': %w", query, err)
+		}
+	}
+
+	// Recreate tables by running the migration
+	migrationQueries := []string{
+		`CREATE TABLE IF NOT EXISTS users (
+			user_id BIGINT PRIMARY KEY,
+			earned NUMERIC(10, 2) DEFAULT 0.00,
+			is_verified BOOLEAN DEFAULT FALSE,
+			is_sub_published BOOLEAN DEFAULT FALSE,
+			is_onboarded BOOLEAN DEFAULT FALSE,
+			card_number VARCHAR(255)
+		)`,
+		`CREATE TABLE IF NOT EXISTS channels (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+			channel_title VARCHAR(255) NOT NULL,
+			channel_username VARCHAR(255) UNIQUE NOT NULL,
+			is_verified BOOLEAN DEFAULT FALSE
+		)`,
+		`CREATE TABLE IF NOT EXISTS subscriptions (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			channel_id UUID NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
+			user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+			channel_username VARCHAR(255) NOT NULL,
+			title VARCHAR(255) NOT NULL,
+			description TEXT,
+			button_text VARCHAR(255),
+			price NUMERIC(10, 2) NOT NULL,
+			created_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE TABLE IF NOT EXISTS payments (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+			description TEXT,
+			created_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_users_user_id ON users(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_channels_user_id ON channels(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_subscriptions_channel_id ON subscriptions(channel_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id)`,
+	}
+
+	for _, query := range migrationQueries {
+		if _, err := db.Exec(query); err != nil {
+			return fmt.Errorf("failed to recreate table: %w", err)
+		}
+	}
+
+	return nil
 }
