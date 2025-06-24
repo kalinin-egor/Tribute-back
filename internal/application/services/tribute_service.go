@@ -87,6 +87,13 @@ func (s *TributeService) SendTelegramMessage(userID int64, message string) error
 	return s.telegramBot.SendMessage(userID, message)
 }
 
+// SendAdminMessage sends a message to the admin chat
+func (s *TributeService) SendAdminMessage(message string) error {
+	// Get admin chat ID from environment variable
+	adminChatID := int64(-4935327333) // Using the provided chat ID
+	return s.telegramBot.SendMessage(adminChatID, message)
+}
+
 func (s *TributeService) AddBot(userID int64, channelTitle, channelUsername string) (*entities.Channel, error) {
 	// Check if the channel already exists for this user to prevent duplicates
 	existingChannels, err := s.channels.FindByUserID(userID)

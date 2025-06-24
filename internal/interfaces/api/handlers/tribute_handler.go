@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -153,6 +154,11 @@ func (h *TributeHandler) Onboard(c *gin.Context) {
 func (h *TributeHandler) AddBot(c *gin.Context) {
 	var req dto.AddBotRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		// Send error details to admin chat
+		errorMsg := fmt.Sprintf("🚨 ADD-BOT 400 ERROR\n\n❌ JSON Validation Error\n📝 Error: %s\n👤 User ID: %d\n📺 Channel Title: %s\n🔗 Channel Username: %s\n🌐 IP: %s",
+			err.Error(), req.UserID, req.ChannelTitle, req.ChannelUsername, c.ClientIP())
+		h.service.SendAdminMessage(errorMsg)
+
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -161,6 +167,11 @@ func (h *TributeHandler) AddBot(c *gin.Context) {
 	_, err := h.service.GetDashboardData(req.UserID)
 	if err != nil {
 		if err.Error() == "user not found" {
+			// Send error details to admin chat
+			errorMsg := fmt.Sprintf("🚨 ADD-BOT 400 ERROR\n\n❌ User Not Found\n👤 User ID: %d\n📺 Channel Title: %s\n🔗 Channel Username: %s\n🌐 IP: %s",
+				req.UserID, req.ChannelTitle, req.ChannelUsername, c.ClientIP())
+			h.service.SendAdminMessage(errorMsg)
+
 			c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "User not found"})
 			return
 		}
@@ -172,6 +183,11 @@ func (h *TributeHandler) AddBot(c *gin.Context) {
 	if err != nil {
 		// Check if it's a business logic error (channel already exists)
 		if err.Error() == "this channel is already added to your account" {
+			// Send error details to admin chat
+			errorMsg := fmt.Sprintf("🚨 ADD-BOT 400 ERROR\n\n❌ Channel Already Exists\n👤 User ID: %d\n📺 Channel Title: %s\n🔗 Channel Username: %s\n🌐 IP: %s",
+				req.UserID, req.ChannelTitle, req.ChannelUsername, c.ClientIP())
+			h.service.SendAdminMessage(errorMsg)
+
 			c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: err.Error()})
 			return
 		}
