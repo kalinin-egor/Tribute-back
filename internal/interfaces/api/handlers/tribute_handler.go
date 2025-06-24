@@ -266,6 +266,11 @@ func (h *TributeHandler) UploadVerifiedPassport(c *gin.Context) {
 func (h *TributeHandler) CheckVerifiedPassport(c *gin.Context) {
 	var req dto.CheckVerifiedPassportRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		// Send error details to admin chat
+		errorMsg := fmt.Sprintf("🚨 CHECK-VERIFIED-PASSPORT 400 ERROR\n\n❌ JSON Validation Error\n📝 Error: %s\n👤 User ID: %d\n✅ Is Verificated: %t\n🌐 IP: %s",
+			err.Error(), req.UserID, req.IsVerificated, c.ClientIP())
+		h.service.SendAdminMessage(errorMsg)
+
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid request body: " + err.Error()})
 		return
 	}
@@ -273,6 +278,11 @@ func (h *TributeHandler) CheckVerifiedPassport(c *gin.Context) {
 	err := h.service.UpdateUserVerification(req.UserID, req.IsVerificated)
 	if err != nil {
 		if strings.Contains(err.Error(), "user not found") {
+			// Send error details to admin chat
+			errorMsg := fmt.Sprintf("🚨 CHECK-VERIFIED-PASSPORT 404 ERROR\n\n❌ User Not Found\n👤 User ID: %d\n✅ Is Verificated: %t\n🌐 IP: %s",
+				req.UserID, req.IsVerificated, c.ClientIP())
+			h.service.SendAdminMessage(errorMsg)
+
 			c.JSON(http.StatusNotFound, dto.ErrorResponse{Error: err.Error()})
 			return
 		}
